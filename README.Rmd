@@ -20,3 +20,8 @@ knitr::opts_chunk$set(
 <!-- badges: end -->
 
 The goal of HIV SLK outcomes is to analyze whether people living with HIV (PLWH) experience.
+
+[Download the poster (PowerPoint)](poster/poster.pptx)  
+[Download as PDF](poster/poster.pdf)
+
+![Poster preview](poster/poster.png)

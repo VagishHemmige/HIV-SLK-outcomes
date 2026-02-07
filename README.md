@@ -13,3 +13,11 @@ Citation](https://img.shields.io/badge/use-not_for_citation-lightgrey)](#)
 
 The goal of HIV SLK outcomes is to analyze whether people living with
 HIV (PLWH) experience.
+
+[Download the poster (PowerPoint)](poster/poster.pptx)  
+[Download as PDF](poster/poster.pdf)
+
+<figure>
+<img src="poster/poster.png" alt="Poster preview" />
+<figcaption aria-hidden="true">Poster preview</figcaption>
+</figure>
