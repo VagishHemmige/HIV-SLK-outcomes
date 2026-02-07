@@ -21,11 +21,9 @@ if(!(c("DONOR_ID") %in% names(tx_ki))){
 }
 
 
-c("DONOR_ID") %in% names(tx_ki)
-
 #Check how many patients had multiple transplants
-tx_li %>% count(PERS_ID, REC_TX_ORG_TY) %>% filter(n > 1)
-tx_ki %>% count(PERS_ID, REC_TX_ORG_TY) %>% filter(n > 1)
+tx_li %>% count(PERS_ID, REC_TX_ORG_TY) %>% filter(n > 1)%>%nrow()
+tx_ki %>% count(PERS_ID, REC_TX_ORG_TY) %>% filter(n > 1)%>%nrow()
 
 #complete FULL join by PERS_ID
 tx_merged <- full_join(tx_li, tx_ki, by = "PERS_ID", suffix = c("_LI", "_KI"))
