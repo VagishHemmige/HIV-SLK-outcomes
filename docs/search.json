@@ -1,0 +1,58 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Overview",
+    "section": "",
+    "text": "HIV SLK"
+  },
+  {
+    "objectID": "index.html#clinical-background",
+    "href": "index.html#clinical-background",
+    "title": "Overview",
+    "section": "",
+    "text": "HIV SLK"
+  },
+  {
+    "objectID": "index.html#what-this-analysis-does",
+    "href": "index.html#what-this-analysis-does",
+    "title": "Overview",
+    "section": "What this analysis does",
+    "text": "What this analysis does\nThis project uses the Scientific Registry of Transplant Recipients to analyze HIV."
+  },
+  {
+    "objectID": "index.html#methods",
+    "href": "index.html#methods",
+    "title": "Overview",
+    "section": "Methods",
+    "text": "Methods\nMatchin"
+  },
+  {
+    "objectID": "index.html#results",
+    "href": "index.html#results",
+    "title": "Overview",
+    "section": "Results",
+    "text": "Results\nPending"
+  },
+  {
+    "objectID": "index.html#site-navigation",
+    "href": "index.html#site-navigation",
+    "title": "Overview",
+    "section": "Site navigation",
+    "text": "Site navigation\n\nSetup: Defines global paths, data sources, cohort inclusion criteria, and analysis-wide constants.\nFunctions: Reusable helper functions for cohort construction, matching, costing, and modeling.\nAbout: methods, assumptions, and disclosures\n\n\nReproducibility\nAll analyses presented on this website are fully reproducible.\nThe complete source code used to perform the full analysis and generate the tables and figures is publicly available at this GitHub repo. The R script R/main.R will run the R subscripts needed for this analysis in the order they are to be run. Model assumptions, parameter values, and analytic workflows are documented in the repository to facilitate transparency and reuse."
+  },
+  {
+    "objectID": "index.html#abstractsmanuscripts",
+    "href": "index.html#abstractsmanuscripts",
+    "title": "Overview",
+    "section": "Abstracts/manuscripts",
+    "text": "Abstracts/manuscripts\nThis analysis has yet to be published to date."
+  },
+  {
+    "objectID": "LICENSE.html",
+    "href": "LICENSE.html",
+    "title": "",
+    "section": "",
+    "text": "Code\n\n\n\n\n\nMIT License\nCopyright (c) 2026 HIV SLK outcomes authors\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\nTHE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+  }
+]
