@@ -1,0 +1,32 @@
+project:
+  type: website
+  output-dir: docs
+
+
+
+website:
+  site-url: https://vagishhemmige.github.io/HIV-SLK-outcomes
+  repo-url: https://github.com/VagishHemmige/HIV-SLK-outcomes
+  repo-actions: [edit, issue]
+  title: "HIV SLK Outcomes"
+  navbar:
+    left:
+      - href: index.html
+        text: Home
+      - href: quarto/setup.html
+        text: Setup
+      - href: quarto/functions.html
+        text: Functions
+
+    right:
+      - icon: github
+        href: https://github.com/VagishHemmige/HIV-SLK-outcomes
+        aria-label: GitHub repository
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
+    code-tools: true
+    page-layout: full
