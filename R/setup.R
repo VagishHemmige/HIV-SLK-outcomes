@@ -25,6 +25,8 @@ library(sandwich)
 library(lmtest)
 library(conflicted)
 library(sRtr)
+
+#Use the conflicted package to ensure that the select and filter functions are not superseded
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("lag", "dplyr")

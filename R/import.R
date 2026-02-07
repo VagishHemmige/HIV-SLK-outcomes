@@ -1,20 +1,26 @@
 
 
-#Import raw kidney and liver files
+#Import raw kidney and liver files using the sRtr
 tx_li <- load_srtr_file("tx_li", factor_labels = TRUE, var_labels = TRUE)
 tx_ki <- load_srtr_file("tx_ki", factor_labels = TRUE, var_labels = TRUE)
 
-#Confirm that REC_TX_DT is in fact a date variable
+#Confirm that REC_TX_DT is in fact a date variable and throw an error otherwise
 if (!inherits(tx_li$REC_TX_DT, "Date")) {
   stop("`REC_TX_DT` must be a Date.", call. = FALSE)
 }
-
 if (!inherits(tx_ki$REC_TX_DT, "Date")) {
   stop("`REC_TX_DT` must be a Date.", call. = FALSE)
 }
 
 #Confirm that DONOR_ID is in the kidney and liver files
-c("DONOR_ID") %in% names(tx_li)
+if(!(c("DONOR_ID") %in% names(tx_li))){
+  stop("`DONOR_ID` must be present in `tx_li", call. = FALSE)
+}
+if(!(c("DONOR_ID") %in% names(tx_ki))){
+  stop("`DONOR_ID` must be present in `tx_ki", call. = FALSE)
+}
+
+
 c("DONOR_ID") %in% names(tx_ki)
 
 #Check how many patients had multiple transplants
