@@ -4,6 +4,18 @@
 tx_li <- load_srtr_file("tx_li", factor_labels = TRUE, var_labels = TRUE)
 tx_ki <- load_srtr_file("tx_ki", factor_labels = TRUE, var_labels = TRUE)
 
+#Import other files needed for the analysis
+donor_deceased <- load_srtr_file("donor_deceased", factor_labels = TRUE, var_labels = TRUE)
+txf_li <- load_srtr_file("txf_li", factor_labels = TRUE, var_labels = TRUE)
+txf_ki <- load_srtr_file("txf_ki", factor_labels = TRUE, var_labels = TRUE)
+malig <- load_srtr_file("malig", factor_labels = TRUE, var_labels = TRUE)
+immuno <- load_srtr_file("immuno", factor_labels = TRUE, var_labels = TRUE)
+cand_kipa <- load_srtr_file("cand_kipa", factor_labels = TRUE, var_labels = TRUE)
+cand_liin <- load_srtr_file("cand_liin", fctor_labels = TRUE, var_labels = TRUE)
+pra <- load_srtr_file("pra_hist", factor_labels = TRUE, var_labels = TRUE)
+
+
+
 #Confirm that REC_TX_DT is in fact a date variable and throw an error otherwise
 if (!inherits(tx_li$REC_TX_DT, "Date")) {
   stop("`REC_TX_DT` must be a Date.", call. = FALSE)
