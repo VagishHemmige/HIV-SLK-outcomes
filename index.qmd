@@ -15,7 +15,7 @@ This project uses the [**Scientific Registry of Transplant Recipients**]() to an
 
 ## Methods
 
-Matchin
+Matching
 
 ## Results
 
