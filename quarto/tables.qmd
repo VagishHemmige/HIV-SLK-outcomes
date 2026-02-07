@@ -1,0 +1,147 @@
+---
+title: "Tables"
+format: html
+---
+
+The code in this script generates tables for the manuscript.
+
+::: callout-note
+### Source code
+
+The full R script is available at:
+
+-   [`R/tables.R`](https://github.com/VagishHemmige/Cryptococcus-cost_analysis/blob/master/R/tables.R)
+
+This R script file is itself reliant on the following helper files:
+
+-   [`R/setup.R`](https://github.com/VagishHemmige/Cryptococcus-cost_analysis/blob/master/R/setup.R)
+-   [`R/functions.R`](https://github.com/VagishHemmige/Cryptococcus-cost_analysis/blob/master/R/functions.R)
+:::
+
+## Table 1
+
+The following code uses the `gt` package to create a Table 1 comparing cases and controls on key variables measured at the index date, to assess balance after risk-set matching.  The code then saves the tables as `.docx` and as `.png` files.
+
+
+```{r, eval=FALSE}
+
+
+#Create a table of the post-match results to confirm that demographics were appropriately balanced
+table1<-post_match_results%>%
+  mutate(age=time_length(interval(BORN, index_date_match), "years"))%>%
+  dplyr::select(cirrhosis, CMV, HIV, diabetes, cumulative_transplant_total, current_graft_status,
+                liver_transplant, lung_transplant, heart_transplant, heartlung_transplant,
+                pancreas_transplant, intestinal_transplant,
+                age, SEX, RACE, HISPANIC, RACEETH, RURALURBAN, cryptococcus_dx_date, 
+         pancreas_transplant, intestinal_transplant, patient_type)%>%
+  gtsummary::tbl_summary(by=patient_type)%>%
+  add_p()
+table1%>%
+  gtsummary::as_gt() %>%
+  gt::gtsave("tables/table1_baseline.png")
+file.exists("tables/table1_baseline.docx") && file.remove("tables/table1_baseline.docx")
+table1%>%
+  gtsummary::as_gt() %>%
+  gt::gtsave("tables/table1_baseline.docx")
+
+
+```
+
+
+## Table 2
+
+Table 2 lists the International Classification of Diseases (ICD-9 and ICD-10) diagnosis codes used to define baseline comorbidities in the study cohort. Comorbidity definitions were specified *a priori* in the `R/setup.R` file and implemented uniformly for cases and matched controls.
+
+Codes were grouped by clinical condition to reflect common diagnostic categories used in transplant and claims-based research. Both ICD-9 and ICD-10 codes were included to ensure continuity across calendar years spanning the ICD-9–to–ICD-10 transition period. For each comorbidity, all qualifying diagnosis codes are shown explicitly to promote transparency and reproducibility.
+
+These comorbidity definitions were used for cohort construction, matching, and covariate adjustment, and were applied using diagnosis information available prior to or at the index date to avoid conditioning on post-exposure information.
+
+Table 2 is provided as a reference table to facilitate replication of the analytic pipeline and to allow readers to evaluate the clinical face validity of the claims-based comorbidity definitions.
+
+```{r, eval=FALSE}
+#Table of comorbidities generated from lists created in setup.R, then exported 
+
+table2_icd <- comorbidity_ICD_list%>%
+  imap_dfr(., 
+           ~tibble(
+             comorbidity = .y,
+             icd_codes_raw = paste(.x, collapse = ", ")
+             )
+           )%>%
+  gt() %>%
+  cols_label(
+    comorbidity   = "Comorbidity",
+    icd_codes_raw = "ICD Codes"
+  ) %>%
+  cols_width(
+    comorbidity   ~ px(220),
+    icd_codes_raw ~ px(500)
+  ) %>%
+  tab_options(
+    table.font.size = px(12)
+  )%>%
+  tab_header(
+  title = "ICD-9 and ICD-10 Codes Used to Define Comorbidities",
+  subtitle = "Codes grouped by clinical condition"
+)
+table2_icd%>%
+  gt::gtsave("tables/table2_baseline.png")
+file.exists("tables/table2_baseline.docx") && file.remove("tables/table2_baseline.docx")
+table2_icd%>%
+  gt::gtsave("tables/table2_baseline.docx")
+
+```
+
+## Cost tables
+
+These tables use the total costs, not the modeled longitudinal costs.  Cases and controls are compared.  These tables are used for exploration and validation and are not intended for the manuscript.
+
+```{r eval=FALSE}
+
+#Examine costs broken down by type
+cost_broken_down%>%
+  select(patient_type, contains(c("IN_REV_365d_cost", "IN_CLM_365d_cost", "PS_REV_365d_cost")))%>%
+  gtsummary::tbl_summary(by=patient_type)%>%
+  add_p()
+
+#Examine costs broken down by type and adjusted for inflation (medians)
+cost_inflated%>%
+  select(patient_type, contains(c("IN_REV_365d_cost", "IN_CLM_365d_cost", "PS_REV_365d_cost")))%>%
+  gtsummary::tbl_summary(by=patient_type)%>%
+  add_p()
+
+cost_inflated%>%
+  select(patient_type, contains(c("IN_REV_365d_cost", "IN_CLM_365d_cost", "PS_REV_365d_cost")))%>%
+  gtsummary::tbl_summary(by=patient_type,
+                         statistic = all_continuous() ~ "{mean} ({sd})")%>%
+  add_p()
+
+
+```
+
+
+## Modeled total excess costs
+
+This code uses the `calculate_total_excess_costs()` function in the `R/functions.R` file to estimate the total excess cost in cases compared with controls.
+see the [functions](functions.qmd) site for more details about the internal workings of the function.
+
+```{r, eval=FALSE}
+
+#Total the grand difference between cases and controls over the entire period of follow up:
+calculate_total_excess_costs(fit[["grand_total_cost_month"]][["gee"]][["linear"]])
+
+```
+
+
+## Other portions of the analysis
+
+-   [**Setup**](setup.qmd): Defines global paths, data sources, cohort inclusion criteria, and analysis-wide constants.
+-   [**Functions**](functions.qmd): Reusable helper functions for cohort construction, matching, costing, and modeling.
+-   [**Create cohort**](create_cohort.qmd): Constructs the initial time-varying cohort of kidney transplant recipients, defining cohort entry, follow-up structure, and case/control eligibility prior to matching.
+-   [**Execute matching**](execute_matching.qmd): Implements risk-set–based greedy matching without replacement to construct the analytic cohort.
+-   [**Post-match processing**](postmatch_processing.qmd): Derives analytic variables, time-aligned cost windows, and follow-up structure after matching.
+-   [**Modeling**](modeling.qmd): Fits prespecified cost and outcome models using the matched cohort.
+-   [**Tables**](tables.qmd): Summary tables and regression outputs generated from the final models.
+-   [**Figures**](figures.qmd):Visualizations of costs, risks, and model-based estimates.
+-   [**About**](about.qmd): methods, assumptions, and disclosures
+
