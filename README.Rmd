@@ -19,8 +19,11 @@ knitr::opts_chunk$set(
 [![Not for Citation](https://img.shields.io/badge/use-not_for_citation-lightgrey)](#)
 <!-- badges: end -->
 
-The goal of HIV SLK outcomes is to analyze whether people living with HIV (PLWH) experience.
+The goal of `HIV SLK outcomes` is to compared the outcomes of people living with HIV (PLWH) who have undergone simultaneous liver-kidney transplant to controls without HIV using the [Scientific Registry of Transplant Recipients](https://srtr.transplant.hrsa.gov/) database.
 
+The full analysis with R code is available at [https://vagishhemmige.github.io/HIV-SLK-outcomes/](https://vagishhemmige.github.io/HIV-SLK-outcomes/).
+
+These data have been presented at the NY-NJ Center for AIDS Research 2026 regional conference as a poster.
 
 ![Poster preview](poster/Poster.png)
 

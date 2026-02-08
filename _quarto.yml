@@ -2,6 +2,11 @@ project:
   type: website
   output-dir: docs
 
+author:
+  - name: Vagish Hemmige
+    affiliations:
+      - Montefiore Medical Center/ Albert Einstein College of Medicine
+    email: vahemmig@montefiore.org
 
 
 website:
