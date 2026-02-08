@@ -7,14 +7,15 @@ project:
     
     
 author:
-  - name: Vagish Hemmige
-    affiliations:
-      - Montefiore Medical Center/ Albert Einstein College of Medicine
-    email: vahemmig@montefiore.org
   - name: Hannah Rosenthal
     affiliations:
       - Albert Einstein College of Medicine
     email: vagish.hemmige@einsteinmed.edu
+  - name: Vagish Hemmige
+    affiliations:
+      - Montefiore Medical Center/ Albert Einstein College of Medicine
+    email: vahemmig@montefiore.org
+
 
 
 website:
