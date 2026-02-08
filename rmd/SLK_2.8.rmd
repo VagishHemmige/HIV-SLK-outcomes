@@ -1,0 +1,4715 @@
+
+---
+title: "HIV SLK"
+author: "Hannah Rosenthal"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)  
+
+```
+
+import libraries
+```{r libraries}
+library(tidyverse)
+library(haven)
+library(labelled)
+library(dplyr)
+library(sRtr)
+library(ggplot2)
+library(tidyr)
+library(janitor)
+library(readr)
+library(purrr)
+library(gtsummary)
+library(gt)
+library(writexl)
+library(readxl)
+library(MatchIt)
+library(lubridate)
+library(survival)
+library(survminer)
+library(MASS)
+library(sandwich)
+library(lmtest)
+library(conflicted)
+library(sRtr)
+library(strobe)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("lag", "dplyr")
+
+```
+
+Now we import initial liver and kidney files, automatically with factor and variable labels
+```{r text import}
+tx_li <- load_srtr_file("tx_li", factor_labels = TRUE, var_labels = TRUE)
+tx_ki <- load_srtr_file("tx_ki", factor_labels = TRUE, var_labels = TRUE)
+```
+
+Now let's merge data sets by unique recipient ID and date of transplant +/- one day.
+```{r Merging data sets}
+#first make sure transplant date columns are in Date format
+tx_li <- tx_li %>% mutate(REC_TX_DT = as.Date(REC_TX_DT, format = "%Y-%m-%d"))
+tx_ki <- tx_ki %>% mutate(REC_TX_DT = as.Date(REC_TX_DT, format = "%Y-%m-%d"))
+
+c("DONOR_ID") %in% names(tx_li)
+c("DONOR_ID") %in% names(tx_ki)
+tx_li %>% count(PERS_ID, REC_TX_ORG_TY) %>% filter(n > 1)
+tx_ki %>% count(PERS_ID, REC_TX_ORG_TY) %>% filter(n > 1)
+
+#complete FULL join by PERS_ID
+tx_merged <- full_join(tx_li, tx_ki, by = "PERS_ID", suffix = c("_LI", "_KI"))
+
+#diagnostic joins 
+  # Liver patients not in kidney
+  only_in_li <- anti_join(tx_li, tx_ki, by = "PERS_ID")
+  
+  # Kidney patients not in liver
+  only_in_ki <- anti_join(tx_ki, tx_li, by = "PERS_ID")
+  
+  #matched patients
+  matched <- inner_join(tx_li, tx_ki, by = "PERS_ID")
+  
+  #checks for date
+  n_distinct(matched$PERS_ID)
+  summary(abs(as.Date(matched$REC_TX_DT.x) - as.Date(matched$REC_TX_DT.y)))
+
+  #calculate counts
+  cat("Only in liver:", nrow(only_in_li), "\n")
+  cat("Only in kidney:", nrow(only_in_ki), "\n")
+  cat("In both (SLK candidates):", nrow(matched), "\n")
+
+#filter out SLK patients, who had transplants within 1 day of each other to find SLKs
+tx_slkRaw <- tx_merged %>%
+  filter(!is.na(REC_TX_DT_LI) & !is.na(REC_TX_DT_KI)) %>%
+  filter(abs(difftime(REC_TX_DT_LI, REC_TX_DT_KI, units = "days")) <= 1)
+
+# Exact duplicates after filtering
+tx_slkRaw %>%
+  count(PERS_ID, REC_TX_DT_LI, REC_TX_DT_KI) %>%
+  filter(n > 1)
+#checking what these duplicates are all about
+tx_slkRaw %>% 
+  filter(PERS_ID==2117076	) # 2 liver donors, Rec neg
+tx_slkRaw %>% 
+  filter(PERS_ID==3905643	) #this looks like a duplicate entry but need to confirm 
+tx_slkRaw %>% 
+  filter(PERS_ID==4505523		) %>% 
+    select(REC_HIV_STAT_LI)# 2 liver donors, rec neg
+
+
+```
+Then let's exclude patients from the merged dataset who have had a prior transplant. If a patient has multiple SLK transplants, we will only include the first event. Special cases (same day re-transplant) were removed manually, only first SLK transplant was included
+```{r Excluding Prior Transplants}
+#Exclude patients with any prior transplant (of any organ)
+tx_slk_preclean <- tx_slkRaw %>%
+  filter(
+    (is.na(CAN_PREV_TX_LI) | CAN_PREV_TX_LI == 0) &
+    (is.na(CAN_PREV_TX_KI) | CAN_PREV_TX_KI == 0)
+  )
+#now using transplant date, look for those who have prior liver/kidney transplant by date compared to slk date  
+# Combine just the ID, organ, and date info
+all_tx <- bind_rows(
+  tx_li %>% select(PERS_ID, ORG_TY = REC_TX_ORG_TY, REC_TX_DT),
+  tx_ki %>% select(PERS_ID, ORG_TY = REC_TX_ORG_TY, REC_TX_DT)
+)
+
+# Earliest transplant date per patient
+first_tx <- all_tx %>%
+  group_by(PERS_ID) %>%
+  summarise(first_tx_date = min(REC_TX_DT), .groups = "drop")
+
+# Find SLK date
+slk_dates <- tx_slk_preclean %>%
+  mutate(SLK_DATE = pmin(REC_TX_DT_LI, REC_TX_DT_KI, na.rm = TRUE)) %>%
+  group_by(PERS_ID) %>%
+  summarise(slk_date = min(SLK_DATE), .groups = "drop")
+
+# Merge and identify those with prior liver/kidney transplants
+slk_with_prior <- slk_dates %>%
+  left_join(first_tx, by = "PERS_ID") %>%
+  mutate(has_prior_tx = first_tx_date < slk_date)
+
+# Keep only first-time SLK patients
+tx_slk_clean <- tx_slk_preclean %>%
+  semi_join(
+    slk_with_prior %>% filter(!has_prior_tx),
+    by = "PERS_ID"
+  )
+
+#if patient has >1 SLK transplant, keep earliest date
+# Keep only the earliest SLK event per patient, but retain same-day duplicates 
+tx_slk_first <- tx_slk_clean %>%
+  group_by(PERS_ID) %>%
+  mutate(first_slk_date = min(pmin(REC_TX_DT_LI, REC_TX_DT_KI), na.rm = TRUE)) %>% 
+  filter(pmin(REC_TX_DT_LI, REC_TX_DT_KI) == first_slk_date) %>%
+  ungroup() %>%
+  select(-first_slk_date)
+
+# Overall dimensions
+dim(tx_slk_first) #10214
+
+# Number of unique patients
+n_distinct(tx_slk_first$PERS_ID) #10212, 
+
+#which patients are duplicated
+dupes <- tx_slk_first %>%
+  count(PERS_ID) %>%
+  filter(n > 1) %>%
+  arrange(desc(n))
+
+nrow(dupes)   # 2
+
+
+# Diagnostic: types of duplicates,Count how many SLK rows per patient
+dupe_summary <- tx_slk_first %>%
+  mutate(SLK_DATE = pmin(REC_TX_DT_LI, REC_TX_DT_KI, na.rm = TRUE)) %>%
+  group_by(PERS_ID) %>%
+  summarise(
+    n_rows = n(),
+    n_unique_dates = n_distinct(SLK_DATE),
+    earliest_slk = min(SLK_DATE),
+    latest_slk = max(SLK_DATE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    duplicate_type = case_when(
+      n_rows == 1 ~ "Single SLK",
+      n_unique_dates == 1 ~ "Same-day duplicates",
+      n_unique_dates > 1 ~ "Multiple SLK dates"
+    )
+  )
+
+#View summary counts
+dupe_summary %>%
+  count(duplicate_type)
+
+
+#diagnostic check - how many duplicates remain after keeping earliest SLK? #2 same day duplicates
+tx_slk_first %>%
+  count(PERS_ID) %>%
+  filter(n > 1) %>%
+  nrow()
+#Identify same-day duplicates 
+same_day_dupes <- dupe_summary %>%
+  filter(duplicate_type == "Same-day duplicates") %>%
+  select(PERS_ID)
+
+#Pull the corresponding rows from full dataset
+same_day_dupe_rows <- tx_slk_clean %>%
+  semi_join(same_day_dupes, by = "PERS_ID") %>%
+  arrange(PERS_ID, REC_TX_DT_LI, REC_TX_DT_KI)
+
+# Write to CSV for manual inspection
+write_csv(
+  same_day_dupe_rows %>%
+    select(PERS_ID, REC_TX_DT_LI, REC_TX_DT_KI, REC_FAIL_DT_LI, REC_FAIL_DT_KI,everything()),
+  "same_day_duplicates_for_review.csv"
+)
+
+#manually identified duplicates, now creating a DF with exact rows to remove 
+rows_to_remove <- tribble(
+  ~PERS_ID, ~REC_FAIL_DT_LI, ~REC_FAIL_DT_KI,
+  2117076, as.Date("1997-12-19"), as.Date("1997-08-14"),
+  4505523, NA, NA
+)
+
+#Remove those rows from main dataset
+tx_slk_clean <- tx_slk_first %>%
+  anti_join(rows_to_remove, by = c("PERS_ID", "REC_FAIL_DT_LI", "REC_FAIL_DT_KI"))
+
+#check to make sure that the correct rows were removed 
+tx_slk_first %>%
+  filter(PERS_ID %in% rows_to_remove$PERS_ID)
+tx_slk_clean %>%
+  filter(PERS_ID %in% rows_to_remove$PERS_ID)
+#check if each row of data set is unique persID
+n_distinct(tx_slk_clean$PERS_ID)
+nrow(tx_slk_clean)
+```
+
+Now perform diagnostic checks of tx_slk_clean
+```{r Diagnostic checks}
+#Confirm each patient only appears once
+nrow(tx_slk_clean)
+n_distinct(tx_slk_clean$PERS_ID)
+
+#Check distribution of date differences between liver & kidney tx
+tx_slk_clean %>%
+  mutate(date_diff = as.numeric(REC_TX_DT_LI - REC_TX_DT_KI)) %>%
+  summarise(
+    min_diff = min(date_diff),
+    max_diff = max(date_diff),
+    mean_diff = mean(date_diff)
+  )
+#Verify SLK definition: all should have both LI and KI dates present
+sum(is.na(tx_slk_clean$REC_TX_DT_LI))
+sum(is.na(tx_slk_clean$REC_TX_DT_KI))
+
+```
+
+
+
+Let's combine liver and kidney variables
+```{r New combining li/ki function}
+ combine_li_ki_consistent <- function(li, ki,
+                                    pos_codes = c("Y","P","1"),
+                                    neg_codes = c("N","0"),
+                                    unknown_codes = c("U","ND","Unknown","", NA),
+                                    out_pos = NULL,
+                                    out_neg = NULL,
+                                    unknown_out = NA_character_,
+                                    discordant_out = NA_character_) {
+
+  li_chr <- stringr::str_trim(as.character(li))
+  ki_chr <- stringr::str_trim(as.character(ki))
+
+  # Clean unknowns
+  li_clean <- ifelse(li_chr %in% unknown_codes, NA_character_, li_chr)
+  ki_clean <- ifelse(ki_chr %in% unknown_codes, NA_character_, ki_chr)
+
+  if (is.null(out_pos)) out_pos <- pos_codes[1]
+  if (is.null(out_neg)) out_neg <- neg_codes[1]
+
+  discordant <- (!is.na(li_clean) & !is.na(ki_clean)) &
+    ((li_clean %in% pos_codes & ki_clean %in% neg_codes) |
+     (li_clean %in% neg_codes & ki_clean %in% pos_codes))
+
+  dplyr::case_when(
+    # Explicit P vs N conflict
+    discordant ~ discordant_out,
+
+    # Positive if P + (P or NA)
+    (li_clean %in% pos_codes & (is.na(ki_clean) | ki_clean %in% pos_codes)) ~ out_pos,
+    (ki_clean %in% pos_codes & (is.na(li_clean) | li_clean %in% pos_codes)) ~ out_pos,
+
+    # Negative if N + N OR N + NA
+    (li_clean %in% neg_codes & (is.na(ki_clean) | ki_clean %in% neg_codes)) ~ out_neg,
+    (ki_clean %in% neg_codes & (is.na(li_clean) | li_clean %in% neg_codes)) ~ out_neg,
+
+    # Everything else
+    TRUE ~ unknown_out
+  )
+}
+
+
+
+#using function to combine variables
+tx_slk_clean <- tx_slk_clean %>%
+  mutate(
+    # HTN
+    CAN_DRUG_TREAT_HYPERTEN_COMB = combine_li_ki_consistent(
+      CAN_DRUG_TREAT_HYPERTEN_LI,
+      CAN_DRUG_TREAT_HYPERTEN_KI,
+      pos_codes = "Y",
+      neg_codes = "N",
+      out_pos = "Y",
+      out_neg = "N"
+    ),
+
+    # CMV
+    REC_CMV_COMBINED = combine_li_ki_consistent(
+      REC_CMV_STAT_LI,
+      REC_CMV_STAT_KI,
+      pos_codes = "P",
+      neg_codes = "N",
+      out_pos = "P",
+      out_neg = "N"
+    ),
+
+    # HCV
+    REC_HCV_STAT_COMB = combine_li_ki_consistent(
+      REC_HCV_STAT_LI,
+      REC_HCV_STAT_KI,
+      pos_codes = "P",
+      neg_codes = "N",
+      out_pos = "P",
+      out_neg = "N"
+    ),
+
+    # HBV Ab
+    REC_HBV_ANTIBODY_COMB = combine_li_ki_consistent(
+      REC_HBV_ANTIBODY_LI,
+      REC_HBV_ANTIBODY_KI,
+      pos_codes = "P",
+      neg_codes = "N",
+      unknown_codes = c("U", "ND", "Unknown", "", NA),
+      out_pos = "P",
+      out_neg = "N"
+    ),
+
+    # HBV surface antigen
+    REC_HBV_SURF_ANTIGEN_COMB = combine_li_ki_consistent(
+      REC_HBV_SURF_ANTIGEN_LI,
+      REC_HBV_SURF_ANTIGEN_KI,
+      pos_codes = "P",
+      neg_codes = "N",
+      unknown_codes = c("U", "ND", "Unknown", "", NA),
+      out_pos = "P",
+      out_neg = "N"
+    ),
+
+    # hepatocellular carcinoma
+    REC_MALIG_TY_HEPCARCINOMA_COMB = combine_li_ki_consistent(
+      REC_MALIG_TY_HEPCARCINOMA_LI,
+      REC_MALIG_TY_HEPCARCINOMA_KI,
+      pos_codes = "1",
+      neg_codes = "0",
+      unknown_codes = c("", NA),
+      out_pos = "Yes",
+      out_neg = "No"
+    ),
+
+    # candidate malignancy
+    CAN_MALIG_COMB = combine_li_ki_consistent(
+      CAN_MALIG_LI,
+      CAN_MALIG_KI,
+      pos_codes = "Y",
+      neg_codes = "N",
+      unknown_codes = c("U", "", NA),
+      out_pos = "Yes",
+      out_neg = "No"
+    ),
+
+    # liver malignancy
+    REC_MALIG_TY_LIVER_COMB = combine_li_ki_consistent(
+      REC_MALIG_TY_LIVER_LI,
+      REC_MALIG_TY_LIVER_KI,
+      pos_codes = "1",
+      neg_codes = "0",
+      unknown_codes = c("U", "", NA),  # or c("", NA) if no "U"
+      out_pos = "Yes",
+      out_neg = "No"
+    )
+  )
+
+
+#count discordant cases
+sum(
+  (tx_slk_clean$REC_HCV_STAT_LI == "P" & tx_slk_clean$REC_HCV_STAT_KI == "N") |
+  (tx_slk_clean$REC_HCV_STAT_LI == "N" & tx_slk_clean$REC_HCV_STAT_KI == "P"),
+  na.rm = TRUE
+)
+
+sum(
+  (tx_slk_clean$REC_HBV_SURF_ANTIGEN_LI == "P" & tx_slk_clean$REC_HBV_SURF_ANTIGEN_KI == "N") |
+  (tx_slk_clean$REC_HBV_SURF_ANTIGEN_LI == "N" & tx_slk_clean$REC_HBV_SURF_ANTIGEN_KI == "P"),
+  na.rm = TRUE
+)
+
+#attach labels 
+var_label(tx_slk_clean$REC_CMV_COMBINED)<- var_label(tx_slk_clean$REC_CMV_STAT_LI)
+var_label(tx_slk_clean$CAN_DRUG_TREAT_HYPERTEN_COMB)<-var_label(tx_slk_clean$CAN_DRUG_TREAT_HYPERTEN_LI)
+var_label(tx_slk_clean$REC_HBV_ANTIBODY_COMB)<- var_label(tx_slk_clean$REC_HBV_ANTIBODY_LI)
+var_label(tx_slk_clean$REC_HBV_SURF_ANTIGEN_COMB)<-var_label(tx_slk_clean$REC_HBV_SURF_ANTIGEN_LI)
+var_label(tx_slk_clean$REC_HCV_STAT_COMB)<- var_label(tx_slk_clean$REC_HCV_STAT_LI)
+var_label(tx_slk_clean$REC_MALIG_TY_HEPCARCINOMA_COMB)<-var_label(tx_slk_clean$REC_MALIG_TY_HEPCARCINOMA_LI)
+var_label(tx_slk_clean$REC_MALIG_TY_LIVER_COMB)<-var_label(tx_slk_clean$REC_MALIG_TY_LIVER_LI)
+var_label(tx_slk_clean$CAN_MALIG_COMB)<-var_label(tx_slk_clean$CAN_MALIG_LI)
+```
+
+
+Creating SLK HIV data set 
+```{r creating HIV data set}
+
+table(
+  tx_slk_clean$REC_HIV_STAT_LI,
+  tx_slk_clean$REC_HIV_STAT_KI,
+  useNA = "ifany"
+)
+
+discordant_raw <- tx_slk_clean %>%
+  filter(
+    (REC_HIV_STAT_LI == "P" & REC_HIV_STAT_KI == "N") |
+    (REC_HIV_STAT_LI == "N" & REC_HIV_STAT_KI == "P")
+  )
+
+nrow(discordant_raw)
+
+
+#turn unknowns and ND into NAs
+tx_slk_step1 <- tx_slk_clean %>%
+  mutate(
+    REC_HIV_STAT_LI_clean = na_if(str_trim(REC_HIV_STAT_LI), ""),
+    REC_HIV_STAT_KI_clean = na_if(str_trim(REC_HIV_STAT_KI), ""),
+    
+    REC_HIV_STAT_LI_clean = ifelse(
+      REC_HIV_STAT_LI_clean %in% c("ND", "Unknown", "U"), NA, REC_HIV_STAT_LI_clean
+    ),
+    REC_HIV_STAT_KI_clean = ifelse(
+      REC_HIV_STAT_KI_clean %in% c("ND", "Unknown", "U"), NA, REC_HIV_STAT_KI_clean
+    )
+  )
+
+#flag discordant cases
+tx_slk_step2 <- tx_slk_step1 %>%
+  mutate(
+    HIV_DISCORDANT = case_when(
+      (REC_HIV_STAT_LI_clean == "P" & REC_HIV_STAT_KI_clean == "N") |
+      (REC_HIV_STAT_LI_clean == "N" & REC_HIV_STAT_KI_clean == "P") ~ 1,
+      TRUE ~ 0
+    )
+  )
+
+excluded_count <- tx_slk_step2 %>%
+  filter(HIV_DISCORDANT == 1) %>%
+  nrow()
+
+excluded_count #16 discordant cases 
+
+#exclude discordant P and N cases
+tx_slk_final <- tx_slk_step2 %>%
+  filter(HIV_DISCORDANT == 0) %>%
+  mutate(
+    HIV_POSITIVE = case_when(
+      # BOTH positive
+      REC_HIV_STAT_LI_clean == "P" & REC_HIV_STAT_KI_clean == "P" ~ 1,
+      
+      # One positive, other missing/unknown
+      REC_HIV_STAT_LI_clean == "P" & is.na(REC_HIV_STAT_KI_clean) ~ 1,
+      REC_HIV_STAT_KI_clean == "P" & is.na(REC_HIV_STAT_LI_clean) ~ 1,
+      
+      # Everything else
+      TRUE ~ 0
+    )
+  )
+
+table(tx_slk_final$HIV_POSITIVE)
+table(
+  tx_slk_final$REC_HIV_STAT_LI_clean,
+  tx_slk_final$REC_HIV_STAT_KI_clean,
+  tx_slk_final$HIV_POSITIVE,
+  useNA = "ifany"
+)
+```
+
+Let's process the SLK data
+```{r SLK processing}
+tx_slk_final <- tx_slk_final %>%
+#exclude patients with mismatched donors
+  filter(DONOR_ID_LI == DONOR_ID_KI) %>% 
+#Calculate Liver and kidney donor BMI
+  mutate(DON_BMI_LI=DON_WGT_KG_LI/(DON_HGT_CM_LI/100)^2) %>% 
+  mutate(DON_BMI_KI=DON_WGT_KG_KI/(DON_HGT_CM_KI/100)^2) %>% 
+#Turn liver failure date into a failure/censor date, with a separate variable to 
+  #determine which of the two applies
+  mutate(TFL_GRAFT_DT_LI_censor=if_else(is.na(TFL_GRAFT_DT_LI), 
+                                   TFL_LAFUDATE_LI,
+                                   TFL_GRAFT_DT_LI))%>%
+  mutate(TFL_GRAFT_DT_LI_binary=ifelse(is.na(TFL_GRAFT_DT_LI),0,1))%>%
+  mutate(TFL_GRAFT_DT_LI_yrs = (1/365)+
+      as.numeric(
+        difftime(TFL_GRAFT_DT_LI_censor, 
+                 REC_TX_DT_LI, 
+                 units = "days")) / 365.25) %>% 
+#Create median time on waitlist until transplant variable
+  mutate(median_waitlist_time_years_li=as.numeric(difftime(REC_TX_DT_LI,
+                                       CAN_LISTING_DT_LI,
+                                       units="days"))/365.25) %>% 
+#Turn kidney failure date into a failure/censor date, with a separate variable to 
+  #determine which of the two applies
+  mutate(TFL_GRAFT_DT_KI_censor=if_else(is.na(TFL_GRAFT_DT_KI), 
+                                   TFL_LAFUDATE_KI,
+                                   TFL_GRAFT_DT_KI))%>%
+  mutate(TFL_GRAFT_DT_KI_binary=ifelse(is.na(TFL_GRAFT_DT_KI),0,1))%>%
+  mutate(TFL_GRAFT_DT_KI_yrs = (1/365)+
+      as.numeric(
+        difftime(TFL_GRAFT_DT_KI_censor, 
+                 REC_TX_DT_KI, 
+                 units = "days")) / 365.25) %>% 
+  
+#create combined kidney and liver time to death variable 
+  mutate(
+    # 1) One transplant date (earliest of the two, just in case)
+    REC_TX_DT_COMPOSITE = pmin(REC_TX_DT_LI, REC_TX_DT_KI, na.rm = TRUE),
+
+    # 2) One last-follow-up date (latest follow-up observed)
+    TFL_LAFUDATE_COMPOSITE = pmax(TFL_LAFUDATE_LI, TFL_LAFUDATE_KI, na.rm = TRUE),
+
+    # 3) One composite death date: OPTN > SSA > TFL, using whichever organ has it
+    PERS_OPTN_DEATH_DT_COMPOSITE = coalesce(PERS_OPTN_DEATH_DT_LI, PERS_OPTN_DEATH_DT_KI),
+    PERS_SSA_DEATH_DT_COMPOSITE  = coalesce(PERS_SSA_DEATH_DT_LI,  PERS_SSA_DEATH_DT_KI),
+    TFL_DEATH_DT_COMPOSITE       = coalesce(TFL_DEATH_DT_LI,       TFL_DEATH_DT_KI),
+
+    REC_DEATH_DT_COMPOSITE = coalesce(
+      PERS_OPTN_DEATH_DT_COMPOSITE,
+      PERS_SSA_DEATH_DT_COMPOSITE,
+      TFL_DEATH_DT_COMPOSITE
+    ),
+
+    # Optional: where did the death date come from?
+    REC_DEATH_SOURCE = case_when(
+      !is.na(PERS_OPTN_DEATH_DT_COMPOSITE) ~ "OPTN",
+      is.na(PERS_OPTN_DEATH_DT_COMPOSITE) & !is.na(PERS_SSA_DEATH_DT_COMPOSITE) ~ "SSA",
+      is.na(PERS_OPTN_DEATH_DT_COMPOSITE) & is.na(PERS_SSA_DEATH_DT_COMPOSITE) & !is.na(TFL_DEATH_DT_COMPOSITE) ~ "TFL",
+      TRUE ~ NA_character_
+    ),
+
+    # 4) Censoring + event indicator
+    REC_DEATH_DT_CENSOR = if_else(
+      is.na(REC_DEATH_DT_COMPOSITE),
+      TFL_LAFUDATE_COMPOSITE,
+      REC_DEATH_DT_COMPOSITE
+    ),
+    REC_DEATH_BINARY = ifelse(is.na(REC_DEATH_DT_COMPOSITE), 0, 1),
+
+    # 5) Time-to-death (years). Add (1/365) if you want to avoid 0 time.
+    REC_DEATH_yrs = as.numeric(difftime(REC_DEATH_DT_CENSOR, REC_TX_DT_COMPOSITE, units = "days")) / 365.25
+  ) %>% 
+#Create median time on waitlist until transplant variable
+  mutate(median_waitlist_time_years_ki=as.numeric(difftime(REC_TX_DT_KI,
+                                       CAN_LISTING_DT_KI,
+                                       units="days"))/365.25) %>% 
+#combine categorical recipient age into one variable, preferring liver data first, then kidney, then NA if neither have data
+  mutate(
+    # Unified recipient age category 
+    REC_AGE_AT_TX = case_when(
+      !is.na(REC_AGE_AT_TX_LI) ~ REC_AGE_AT_TX_LI,
+      is.na(REC_AGE_AT_TX_LI) & !is.na(REC_AGE_AT_TX_KI) ~ REC_AGE_AT_TX_KI,  
+      TRUE ~ NA_character_
+    )
+  ) %>%  
+#create numeric recipient age, combine into one variable and convert from months to years
+ mutate(
+    REC_AGE_YEARS = coalesce(REC_AGE_IN_MONTHS_AT_TX_LI, REC_AGE_IN_MONTHS_AT_TX_KI) / 12
+  ) %>% 
+#combine recipient gender into one variable, preferring liver data first 
+  mutate(
+    CAN_GENDER = case_when(
+      !is.na(CAN_GENDER_LI) ~ CAN_GENDER_LI,      
+      is.na(CAN_GENDER_LI) & !is.na(CAN_GENDER_KI) ~ CAN_GENDER_KI,  
+      TRUE ~ NA_character_                          
+    )
+  ) %>% 
+#Create numeric candidate age at listing variable
+  mutate(
+    CAN_AGE_AT_LISTING_YR_LI = CAN_AGE_IN_MONTHS_AT_LISTING_LI/12
+      )%>% 
+  mutate(
+    CAN_AGE_AT_LISTING_YR_KI = CAN_AGE_IN_MONTHS_AT_LISTING_KI/12
+  ) %>% 
+#combine candidate race at listing into one variable, preferring kidney data first
+  mutate(
+    CAN_RACE = case_when(
+        !is.na(CAN_RACE_LI) ~ CAN_RACE_LI,                             
+        is.na(CAN_RACE_LI) & !is.na(CAN_RACE_KI) ~ CAN_RACE_KI,         
+        TRUE ~ NA_character_                                          
+      )
+  ) %>% 
+#combine donor race for kidney/liver
+  mutate(
+    DON_RACE = case_when(
+        !is.na(DON_RACE_LI) ~ DON_RACE_LI,                             
+        is.na(DON_RACE_LI) & !is.na(DON_RACE_KI) ~ DON_RACE_KI,         
+        TRUE ~ NA_character_                                          
+      ) 
+    )%>% 
+#combine donor ethnicity for kidney/liver
+  mutate(
+    DON_ETHNICITY_SRTR = case_when(
+        !is.na(DON_ETHNICITY_SRTR_LI) ~ DON_ETHNICITY_SRTR_LI,                             
+        is.na(DON_ETHNICITY_SRTR_LI) & !is.na(DON_ETHNICITY_SRTR_KI) ~ DON_ETHNICITY_SRTR_KI,       
+        TRUE ~ NA_character_                                          
+      ) 
+    )%>% 
+#combine donor death mechanism for kidney/liver
+  mutate(
+    DON_DEATH_MECH = case_when(
+        !is.na(DON_DEATH_MECH_LI) ~ DON_DEATH_MECH_LI,                             
+        is.na(DON_DEATH_MECH_LI) & !is.na(DON_DEATH_MECH_KI) ~ DON_DEATH_MECH_KI,       
+        TRUE ~ NA_character_                                          
+      ) 
+    )%>% 
+#combine death mech categories:
+  mutate(
+    DON_DEATH_MECH_CAT = case_when(
+      
+      # Trauma / external insult
+      DON_DEATH_MECH %in% c(
+        "7: GUNSHOT WOUND",
+        "8: STAB",
+        "9: BLUNT INJURY",
+        "995: 995-Gunshot/stab wound (Pre-OTIS)"
+      ) ~ "trauma/external insult",
+      
+      # Drug intoxication
+      DON_DEATH_MECH == "3: DRUG INTOXICATION" ~ "drug intoxication",
+      
+      # Other (medical / non-external)
+      DON_DEATH_MECH %in% c(
+        "11: INTRACRANIAL HEMORRHAGE/STROKE",
+        "12: DEATH FROM NATURAL CAUSES",
+        "5: CARDIOVASCULAR",
+        "1: DROWNING",
+        "2: SEIZURE",
+        "4: ASPHYXIATION",
+        "6: ELECTRICAL",
+        "997: NONE OF THE ABOVE"
+      ) ~ "other",
+      
+      # Catch anything unexpected
+      TRUE ~ NA_character_
+    )
+  ) %>% 
+#combine donor age for kidney/liver
+  mutate(
+    DON_AGE = coalesce(DON_AGE_LI, DON_AGE_KI)
+  ) %>% 
+#combine donor gender for kidney/liver
+  mutate(
+    DON_GENDER = case_when(
+        !is.na(DON_GENDER_LI) ~ DON_GENDER_LI,                             
+        is.na(DON_GENDER_LI) & !is.na(DON_GENDER_KI) ~ DON_GENDER_KI,       
+        TRUE ~ NA_character_                                          
+      ) 
+    )%>% 
+#combine expanded donor criteria for kidney/li
+  mutate(
+    DON_EXPAND_DON_KI = coalesce(DON_EXPAND_DON_KI_LI, DON_EXPAND_DON_KI_KI)
+  ) %>% 
+#combine donor ID for kidney/liver
+  mutate(
+    DONOR_ID = coalesce(DONOR_ID_LI, DONOR_ID_KI)
+  ) %>% 
+#transplant reason liver used OPTN diagnosis categories https://optn.transplant.hrsa.gov/patients/by-organ/liver/
+  mutate(
+    REC_DGN_LI_num = as.numeric(str_extract(as.character(REC_DGN_LI), "^[0-9]+")),
+    REC_DGN_KI_num = as.numeric(str_extract(as.character(REC_DGN_KI), "^[0-9]+"))
+  ) %>% 
+  mutate(
+    TRANSPLANT_REASON_LI = case_when(
+      # Explicit missing category (instead of NA)
+      is.na(REC_DGN_LI_num) ~ "Missing",
+
+      # Acute liver failure / acute hepatitis
+      REC_DGN_LI_num %in% c(
+        4100, 4101, 4102, 4104, 4105, 4106, 4108, 4110, 4217
+      ) ~ "Acute Liver Failure/Hepatitis",
+
+      # Chronic liver disease
+      REC_DGN_LI_num %in% c(
+        4220, 4230, 4231, 4235, 4240, 4241, 4242, 4245,
+        4200, 4201, 4202, 4204, 4205, 4206, 4207, 4208,
+        4209, 4210, 4212, 4213, 4214, 4215, 4216
+      ) ~ "Chronic Liver Disease",
+
+      # Malignant neoplasms
+      REC_DGN_LI_num %in% c(
+        4400, 4401, 4403, 4404, 4410, 4430
+      ) ~ "Malignant Neoplasms",
+
+      # Other known liver diagnoses
+      REC_DGN_LI_num %in% c(
+        4270, 4271, 4272, 4275,
+        4300, 4301, 4302, 4303, 4307, 4315,
+        999, 4250, 4255, 4260, 4264, 4265,
+        4280, 4285, 4290, 4451, 4455, 4500, 4520
+      ) ~ "Other",
+
+      # Any remaining known-but-unlisted codes
+      TRUE ~ "Other"
+    )
+  ) %>% 
+#transplant reason kidney (used OPTN diagnosis categories https://optn.transplant.hrsa.gov/patients/by-organ/kidney/)
+  mutate(
+    TRANSPLANT_REASON_KI = case_when(
+      is.na(REC_DGN_KI_num) ~ "Missing",
+  
+      REC_DGN_KI_num %in% c(3010, 3014, 3015, 3025, 3028, 3036, 3052) ~
+        "Congenital, Rare Familial,and Metabolic Disorders",
+  
+      REC_DGN_KI_num %in% c(3011, 3012, 3038, 3039, 3069, 3070, 3071) ~
+        "Diabetes",
+  
+      REC_DGN_KI_num %in% c(3000, 3001, 3002, 3003, 3004, 3005, 3006, 3016, 3018, 3019,
+                            3024, 3029, 3031, 3033, 3035, 3041, 3042, 3043, 3054, 3064,
+                            3068, 3074) ~
+        "Glomerular Disease",
+  
+      REC_DGN_KI_num %in% c(3040) ~
+        "Hypertensive Nephrosclerosis",
+  
+      REC_DGN_KI_num %in% c(3058, 3020, 3021, 3022) ~
+        "Neoplasms",
+  
+      REC_DGN_KI_num %in% c(999, 3032, 3056) ~
+        "Other Kidney",
+  
+      REC_DGN_KI_num %in% c(3008) ~
+        "Polycystic Kidneys",
+  
+      REC_DGN_KI_num %in% c(3072) ~
+        "Hepatorenal syndrome",
+  
+      REC_DGN_KI_num %in% c(3034, 3050, 3051, 3053, 3055) ~
+        "Renovascular and Other Vascular Diseases",
+  
+      REC_DGN_KI_num %in% c(3007, 3009, 3013, 3026, 3027, 3030, 3044, 3045, 3046, 3047,
+                            3048, 3049, 3057, 3059, 3060, 3063, 3073) ~
+        "Tubular and Interstitial Diseases",
+  
+      TRUE ~ "Other"
+    )
+  ) %>%
+#collapse kidney variable into smaller categories 
+  mutate(
+    TRANSPLANT_REASON_KI_COLLAPSED = case_when(
+      TRANSPLANT_REASON_KI == "Missing" ~ "Missing",
+  
+      TRANSPLANT_REASON_KI == "Diabetes" ~ "Diabetes",
+      TRANSPLANT_REASON_KI == "Glomerular Disease" ~ "Glomerular disease",
+  
+      TRANSPLANT_REASON_KI %in% c("Hypertensive Nephrosclerosis",
+                                  "Renovascular and Other Vascular Diseases") ~
+        "Hypertensive / vascular",
+  
+      TRANSPLANT_REASON_KI %in% c("Polycystic Kidneys",
+                                  "Congenital, Rare Familial,and Metabolic Disorders") ~
+        "Polycystic / hereditary",
+  
+      TRANSPLANT_REASON_KI == "Hepatorenal syndrome" ~ "Hepatorenal syndrome",
+  
+      TRANSPLANT_REASON_KI %in% c("Tubular and Interstitial Diseases",
+                                  "Other Kidney",
+                                  "Other") ~
+        "Tubulointerstitial / other CKD",
+  
+      TRANSPLANT_REASON_KI %in% c("Neoplasms") ~ "Rare / other",
+  
+      TRUE ~ "Rare / other"
+    )
+  ) %>% 
+  mutate(
+    TRANSPLANT_REASON_KI_COLLAPSED = factor(
+      TRANSPLANT_REASON_KI_COLLAPSED,
+      levels = c(
+        "Diabetes",
+        "Glomerular disease",
+        "Hypertensive / vascular",
+        "Polycystic / hereditary",
+        "Hepatorenal syndrome",
+        "Tubulointerstitial / other CKD",
+        "Rare / other",
+        "Missing"
+      )
+    )
+  ) %>% 
+#create year of transplant variable 
+   mutate(
+    REC_TX_DT = coalesce(REC_TX_DT_LI, REC_TX_DT_KI),
+    YEAR_TRANSPLANT = year(REC_TX_DT)
+  ) %>% 
+#create DAA era varible
+    mutate(
+    ERA = ifelse(YEAR_TRANSPLANT< 2014, "Pre-DAA", "Post-DAA"),
+    ERA = factor(ERA, levels = c("Pre-DAA", "Post-DAA"))
+  ) %>% 
+#remove pediatric patients <16
+  filter(REC_AGE_YEARS>=16) %>% 
+#create numeric last MELD value
+  mutate(
+    # extract numeric part from "MELD/PELD xx"
+    CAN_LAST_SRTR_LAB_MELD_NUM = as.integer(
+      str_extract(
+        CAN_LAST_SRTR_LAB_MELD,
+        regex("(?<=MELD/PELD)\\s*-?\\d+", ignore_case = TRUE)
+      )
+    ),
+    # numeric last MELD (only where type == "M")
+    MELD_NUM_Last = dplyr::if_else(
+      CAN_LAST_SRTR_LAB_MELD_TY == "M",
+      CAN_LAST_SRTR_LAB_MELD_NUM,
+      as.integer(NA)
+    ),
+    # numeric last PELD (only where type == "P")
+    PELD_NUM_Last = dplyr::if_else(
+      CAN_LAST_SRTR_LAB_MELD_TY == "P",
+      CAN_LAST_SRTR_LAB_MELD_NUM,
+      as.integer(NA)
+    ),
+    CAN_INIT_SRTR_LAB_MELD_NUM = as.integer(
+      str_extract(
+        CAN_INIT_SRTR_LAB_MELD,
+        regex("(?<=MELD/PELD)\\s*-?\\d+", ignore_case = TRUE)
+      )
+    ),
+    # numeric initial MELD
+    MELD_NUM_Init = dplyr::if_else(
+      CAN_INIT_SRTR_LAB_MELD_TY == "M",
+      CAN_INIT_SRTR_LAB_MELD_NUM,
+      as.integer(NA)
+    ),
+    # numeric initial PELD
+    PELD_NUM_Init = dplyr::if_else(
+      CAN_INIT_SRTR_LAB_MELD_TY == "P",
+      CAN_INIT_SRTR_LAB_MELD_NUM,
+      as.integer(NA)
+    )
+  )%>% 
+#create binary for REC_FAILY_GRAFT_THROMB
+  mutate(REC_FAIL_GRAFT_THROMB_BI=ifelse(REC_FAIL_GRAFT_THROMB=="Y", 1, 0)) %>% 
+  mutate(REC_FAIL_GRAFT_THROMB_KI = na_if(as.character(REC_FAIL_GRAFT_THROMB), "")) %>% 
+  mutate(REC_FAIL_GRAFT_THROMB_KI = case_when(
+    REC_FAIL_GRAFT_THROMB == "Y" ~ "Y",
+    REC_FAIL_GRAFT_THROMB == "N" ~ "N",
+    REC_FAIL_GRAFT_THROMB %in% c("U", "", NA_character_, NA) ~ "U",
+    TRUE ~ "U"
+  )) %>%
+  mutate(REC_FAIL_GRAFT_THROMB_KI = factor(REC_FAIL_GRAFT_THROMB_KI, levels = c("Y","N","U"))) %>% 
+#recode variable and create binary for REC_FAIL_INFECT for both ki and li
+    mutate(REC_FAIL_INFECT_KI_recode = na_if(as.character(REC_FAIL_INFECT_KI), " ")) %>% 
+    mutate(REC_FAIL_INFECT_KI_recode = case_when(
+    REC_FAIL_INFECT_KI == "Y" ~ "Y",
+    REC_FAIL_INFECT_KI == "N" ~ "N",
+    REC_FAIL_INFECT_KI %in% c("U", "", NA_character_, NA) ~ "U",
+    TRUE ~ "U"
+  )) %>%
+  mutate(REC_FAIL_INFECT_KI_recode = factor(REC_FAIL_INFECT_KI_recode, levels = c("Y","N","U"))) %>% 
+  mutate(REC_FAIL_INFECT_KI_BI=ifelse(REC_FAIL_INFECT_KI=="Y", 1, 0)) %>% 
+#same for liver
+    mutate(REC_FAIL_INFECT_LI_recode = na_if(as.character(REC_FAIL_INFECT_LI), " ")) %>%
+    mutate(REC_FAIL_INFECT_LI_recode = case_when(
+    REC_FAIL_INFECT_LI == "Y" ~ "Y",
+    REC_FAIL_INFECT_LI == "N" ~ "N",
+    REC_FAIL_INFECT_LI %in% c("U", "", NA_character_, NA) ~ "U",
+    TRUE ~ "U"
+  )) %>%
+  mutate(REC_FAIL_INFECT_LI_recode = factor(REC_FAIL_INFECT_LI_recode, levels=c("Y","N","U"))) %>% 
+  mutate(REC_FAIL_INFECT_LI_BI=ifelse(REC_FAIL_INFECT_LI=="Y", 1, 0)) %>% 
+#recode and create binary for REC_FAIL_RECUR_DISEASE for both ki and li
+  mutate(
+    REC_FAIL_RECUR_DISEASE_KI_recode = fct_na_value_to_level(REC_FAIL_RECUR_DISEASE_KI),
+    REC_FAIL_RECUR_DISEASE_LI_recode = fct_na_value_to_level(REC_FAIL_RECUR_DISEASE_LI)
+  ) %>%
+  mutate(across(
+    c(REC_FAIL_RECUR_DISEASE_KI_recode, REC_FAIL_RECUR_DISEASE_LI_recode), 
+    ~ case_when(
+        . == "Y" ~ "Y",
+        . == "N" ~ "N",
+        TRUE ~ "U"
+      )
+  )) %>%
+  mutate(across(
+    c(REC_FAIL_RECUR_DISEASE_KI_recode, REC_FAIL_RECUR_DISEASE_LI_recode), 
+    ~ factor(., levels = c("Y","N","U"))
+  )) %>% 
+  mutate(REC_FAIL_RECUR_DISEASE_KI_BI=ifelse(REC_FAIL_RECUR_DISEASE_KI=="Y", 1, 0)) %>% 
+  mutate(REC_FAIL_RECUR_DISEASE_LI_BI=ifelse(REC_FAIL_RECUR_DISEASE_LI=="Y", 1, 0)) %>% 
+#recode and create binary for REC_FAIL_REJ_ACUTE for both li and kidney 
+  mutate(
+    REC_FAIL_REJ_ACUTE_KI_recode = fct_na_value_to_level(REC_FAIL_REJ_ACUTE_KI),
+    REC_FAIL_REJ_ACUTE_LI_recode = fct_na_value_to_level(REC_FAIL_REJ_ACUTE_LI)
+  ) %>%
+  mutate(across(
+    c(REC_FAIL_REJ_ACUTE_KI_recode, REC_FAIL_REJ_ACUTE_LI_recode),
+    ~ case_when(
+        . == "Y" ~ "Y",
+        . == "N" ~ "N",
+        TRUE ~ "U"
+      ),
+    .names = "{.col}"  # keeps names exactly as written
+  )) %>%
+  mutate(across(
+    c(REC_FAIL_REJ_ACUTE_KI_recode, REC_FAIL_REJ_ACUTE_LI_recode),
+    ~ factor(., levels = c("Y","N","U"))
+  )) %>% 
+  mutate(REC_FAIL_REJ_ACUTE_KI_bi=ifelse(REC_FAIL_REJ_ACUTE_KI=="Y", 1, 0)) %>% 
+  mutate(REC_FAIL_REJ_ACUTE_LI_bi=ifelse(REC_FAIL_REJ_ACUTE_LI=="Y", 1, 0)) %>% 
+#create binary for REC_FAIL_SURG_COMPL (only exists for kidney)
+  mutate(REC_FAIL_SURG_COMPL_bi=ifelse(REC_FAIL_SURG_COMPL=="Y", 1, 0)) %>%  
+#create binary for REC_FAIL_UROL_COMPL (only exists for kidney)
+  mutate(REC_FAIL_UROL_COMPL_bi=ifelse(REC_FAIL_UROL_COMPL=="Y", 1, 0)) %>%  
+#recode both urol comp and fail_surg complications just for kidney
+  mutate(
+    REC_FAIL_SURG_COMPL_recode = fct_na_value_to_level(REC_FAIL_SURG_COMPL),
+    REC_FAIL_UROL_COMPL_recode = fct_na_value_to_level(REC_FAIL_UROL_COMPL)
+  ) %>%
+  mutate(across(
+    c(REC_FAIL_SURG_COMPL_recode, REC_FAIL_UROL_COMPL_recode),
+    ~ case_when(
+        . == "Y" ~ "Y",
+        . == "N" ~ "N",
+        TRUE ~ "U"
+      )
+  )) %>%
+  mutate(across(
+    c(REC_FAIL_SURG_COMPL_recode, REC_FAIL_UROL_COMPL_recode),
+    ~ factor(., levels = c("Y","N","U"))
+  )) %>% 
+#recode recurrent hepatitis variable to 3 levels for liver only 
+  mutate(
+    REC_FAIL_HEP_RECUR_recode = case_when(
+      REC_FAIL_HEP_RECUR == "Y" ~ "Y",
+      REC_FAIL_HEP_RECUR == "N" ~ "N",
+      TRUE ~ "U"   # includes U, "", NA, and anything unexpected
+    ),
+    REC_FAIL_HEP_RECUR_recode = factor(
+      REC_FAIL_HEP_RECUR_recode,
+      levels = c("Y", "N", "U")
+    )
+  ) %>% 
+#combine insurance type for kidney and liver, and then categorize as private vs public vs other/na
+  mutate(
+    REC_PRIMARY_PAY = case_when(
+        !is.na(REC_PRIMARY_PAY_LI) ~ REC_PRIMARY_PAY_LI,                             
+        is.na(REC_PRIMARY_PAY_LI) & !is.na(REC_PRIMARY_PAY_KI) ~ REC_PRIMARY_PAY_KI,       
+        TRUE ~ NA_character_                                          
+      ) 
+    )%>% 
+  mutate(
+    REC_PRIMARY_PAY = case_when(
+      REC_PRIMARY_PAY %in% c("1: Private insurance") ~ "Private",
+      
+      REC_PRIMARY_PAY %in% c(
+        "2: Public insurance - Medicaid",
+        "3: Public insurance - Medicare FFS (Fee for Service)",
+        "4: Public insurance - Medicare & Choice",
+        "5: Public insurance - CHIP (Children's Health Insurance Program)",
+        "6: Public insurance - Department of VA",
+        "7: Public insurance - Other government",
+        "13: Public insurance - Medicare Unspecified",
+        "14: US/State Govt Agency"
+      ) ~ "Public",
+      
+      REC_PRIMARY_PAY %in% c(
+        "8: Self",
+        "9: Donation",
+        "10: Free Care",
+        "11: Pending",
+        "12: Foreign Government Specify",
+        "15: Unknown"
+      ) ~ "Other/NA",
+      
+      TRUE ~ "Other/NA"
+    )
+  ) %>% 
+#recode and create binary variable for REC_FAIL_HEP_denovo (cause of graft failure recurrent hepatitis)
+  mutate(REC_FAIL_HEP_DENOVO_bi=ifelse(REC_FAIL_HEP_DENOVO=="Y", 1, 0)) %>%
+  mutate(
+    REC_FAIL_HEP_DENOVO_recode =
+      case_when(
+        REC_FAIL_HEP_DENOVO == "Y" ~ "Y",
+        REC_FAIL_HEP_DENOVO == "N" ~ "N",
+        TRUE ~ "U"   # NA, "", "U", Missing all → "U"
+      ),
+    REC_FAIL_HEP_DENOVO_recode = factor(REC_FAIL_HEP_DENOVO_recode, levels = c("Y", "N", "U"))
+  ) %>% 
+#recode and also create binary variable for REC_FAIL_VASC_THROMB
+  mutate(REC_FAIL_VASC_THROMB_bi=ifelse(REC_FAIL_VASC_THROMB=="Y", 1, 0)) %>% 
+  mutate(
+    REC_FAIL_VASC_THROMB_recode =
+      case_when(
+        REC_FAIL_VASC_THROMB == "Y" ~ "Y",
+        REC_FAIL_VASC_THROMB == "N" ~ "N",
+        TRUE ~ "U"
+      ),
+    REC_FAIL_VASC_THROMB_recode = factor(REC_FAIL_VASC_THROMB_recode, levels = c("Y", "N", "U"))
+  ) %>% 
+#combine REC_TX_ORG_TY
+    mutate(
+    REC_TX_ORG_TY = case_when(
+        !is.na(REC_TX_ORG_TY_LI) ~ REC_TX_ORG_TY_LI,                             
+        is.na(REC_TX_ORG_TY_LI) & !is.na(REC_TX_ORG_TY_KI) ~ REC_TX_ORG_TY_KI,       
+        TRUE ~ NA_character_                                          
+      ) 
+    )%>%
+#exclude multi-organ transplants (K_L_I and K_L_H)
+  filter(!REC_TX_ORG_TY %in% c("KI LI IN: Kidney-Liver-Intestine", "KI LI HR: Kidney-Liver-Heart")) %>% 
+#combine rec BMI for liver and kidney data
+  mutate(
+    REC_BMI=coalesce(REC_BMI_KI,REC_BMI_KI)
+  ) %>%
+#combine candidate race
+  mutate(
+    CAN_RACE = case_when(
+        !is.na(CAN_RACE_LI) ~ CAN_RACE_LI,
+        is.na(CAN_RACE_LI) & !is.na(CAN_RACE_KI) ~ CAN_RACE_KI,
+        TRUE ~ NA_character_
+      )
+    )%>%
+#combine candidate ethnicity
+  mutate(
+    CAN_ETHNICITY_SRTR = case_when(
+        !is.na(CAN_ETHNICITY_SRTR_LI) ~ CAN_ETHNICITY_SRTR_LI,
+        is.na(CAN_ETHNICITY_SRTR_LI) & !is.na(CAN_ETHNICITY_SRTR_KI) ~ CAN_ETHNICITY_SRTR_KI,
+        TRUE ~ NA_character_
+      )
+    ) %>%
+#combine and recode missing for rec_malignancy_type
+  mutate(
+    # Step 1: Clean raw inputs ("" → NA)
+    REC_MALIG_TY_LI_clean = na_if(as.character(REC_MALIG_TY_LI), ""),
+    REC_MALIG_TY_KI_clean = na_if(as.character(REC_MALIG_TY_KI), ""),
+
+    # Step 2: Convert literal "Missing" into NA
+    REC_MALIG_TY_LI_clean = if_else(
+      REC_MALIG_TY_LI_clean == "Missing", NA_character_, REC_MALIG_TY_LI_clean
+    ),
+    REC_MALIG_TY_KI_clean = if_else(
+      REC_MALIG_TY_KI_clean == "Missing", NA_character_, REC_MALIG_TY_KI_clean
+    ),
+
+    # Step 3: Prefer whichever actually has data;
+    # if both have data, prefer liver; if neither, "Missing"
+    REC_MALIG_TY_COMBINED = case_when(
+      !is.na(REC_MALIG_TY_LI_clean) ~ REC_MALIG_TY_LI_clean,  # liver first IF it's real
+      is.na(REC_MALIG_TY_LI_clean) & !is.na(REC_MALIG_TY_KI_clean) ~ REC_MALIG_TY_KI_clean,  # else kidney
+      TRUE ~ "Missing"  # neither has data
+    ),
+
+    # Step 4: Turn into factor (optional)
+    REC_MALIG_TY_COMBINED = factor(REC_MALIG_TY_COMBINED)
+  ) %>%
+  select(-REC_MALIG_TY_LI_clean, -REC_MALIG_TY_KI_clean) %>% 
+#recode can_last_Ascites and can_last_enceph to combine missing with unknown 
+  mutate(
+    CAN_LAST_ASCITES = factor(
+      dplyr::case_when(
+        CAN_LAST_ASCITES %in% c("4: N/A", "Unknown", NA, "") ~ "Unknown",
+        TRUE ~ CAN_LAST_ASCITES
+      ),
+      levels = c("1: Absent", "2: Slight", "3: Moderate", "Unknown")
+    ),
+    
+    CAN_LAST_ENCEPH = factor(
+      dplyr::case_when(
+        CAN_LAST_ENCEPH %in% c("4: N/A", "Unknown", NA, "") ~ "Unknown",
+        TRUE ~ CAN_LAST_ENCEPH
+      ),
+      levels = c("1: None", "2: 1-2", "3: 3-4", "Unknown")
+    )
+  ) %>% 
+#create length of hospital stay after transplant variable, exclude those who died prior to d/c
+  mutate(
+    REC_DISCHRG_DT  = coalesce(REC_DISCHRG_DT_LI, REC_DISCHRG_DT_KI),
+    
+    los_days = as.integer(REC_DISCHRG_DT - REC_TX_DT),
+    los_days = if_else(REC_DEATH_BINARY == 1 & 
+                       REC_DEATH_DT_COMPOSITE <= REC_DISCHRG_DT, NA_integer_, los_days),
+    
+    # If you want “day of transplant = day 1”
+    los_days_inclusive = if_else(!is.na(los_days), los_days + 1L, NA_integer_)
+  ) %>% 
+#collapse race variable into smaller categories
+  mutate(
+    # Extract the leading numeric code if present (e.g., "16" from "16: Black...")
+    CAN_RACE_code = as.integer(str_extract(as.character(CAN_RACE), "^[0-9]+")),
+
+    # Collapsed race variable
+    CAN_RACE_collapsed = case_when(
+      is.na(CAN_RACE) ~ "Missing",
+
+      CAN_RACE_code == 8    ~ "White",
+      CAN_RACE_code == 16   ~ "Black",
+      CAN_RACE_code == 2000 ~ "Hispanic/Latino",
+      CAN_RACE_code %in% c(64, 32, 128) ~ "Other",
+
+      TRUE ~ "Other"
+    ) %>%
+      factor(levels = c("White", "Black", "Hispanic/Latino", "Other", "Missing"))
+  )
+
+
+#how many die before discharge?
+death_num_before_dc<-sum(!is.na(tx_slk_final$REC_DEATH_DT_COMPOSITE) & tx_slk_final$REC_DEATH_DT_COMPOSITE <= tx_slk_final$REC_DISCHRG_DT, na.rm = TRUE) #448
+
+
+saveRDS(tx_slk_final, "tx_slk_final.rds")
+ 
+#keep original labels
+var_label(tx_slk_final$CAN_RACE)<-var_label(tx_slk_final$CAN_RACE_LI)
+var_label(tx_slk_final$CAN_ETHNICITY_SRTR)<-var_label(tx_slk_final$CAN_ETHNICITY_SRTR_LI)
+var_label(tx_slk_final$REC_FAIL_VASC_THROMB_recode)<-var_label(tx_slk_final$REC_FAIL_VASC_THROMB)
+var_label(tx_slk_final$REC_FAIL_HEP_DENOVO_recode)<-var_label(tx_slk_final$REC_FAIL_HEP_DENOVO)
+
+
+
+
+table(tx_slk_final$ERA, useNA = "ifany")
+table(tx_slk_final$ERA, tx_slk_final$HIV_POSITIVE, useNA = "ifany")
+summary(tx_slk_final$YEAR_TRANSPLANT)
+table(tx_slk_final$TRANSPLANT_REASON_LI)
+
+
+multi_kidney_organs <- tx_slk_final %>%
+  filter(REC_TX_ORG_TY_KI %in% c("KI LI IN: Kidney-Liver-Intestine", "KI LI HR: Kidney-Liver-Heart"))  # adjust names if UNOS uses different labels
+
+# Count HIV status in this group
+table(multi_kidney_organs$HIV_POSITIVE, useNA = "ifany")
+
+# Number of HIV positive recipients
+sum(multi_kidney_organs$REC_HIV_STAT_KI == "P", na.rm = TRUE)
+
+
+table(tx_slk_final$DON_DEATH_MECH)
+
+
+
+summary(tx_slk_final$REC_DEATH_yrs)
+
+# Should be >= 0
+sum(tx_slk_final$REC_DEATH_yrs < 0, na.rm = TRUE)
+
+# Check short follow-up
+summary(tx_slk_final$REC_DEATH_yrs[tx_slk_final$REC_DEATH_BINARY == 1])
+
+tx_slk_final %>%
+  filter(
+    !is.na(PERS_OPTN_DEATH_DT_LI) | !is.na(PERS_OPTN_DEATH_DT_KI)
+  ) %>%
+  count(REC_DEATH_SOURCE)
+
+# Are LI and KI transplant dates basically the same?
+summary(as.numeric(difftime(tx_slk_final$REC_TX_DT_LI, tx_slk_final$REC_TX_DT_KI, units="days")))
+
+
+#figure out which donor repeats, #354422
+dup_donors <- tx_slk_final$DONOR_ID_LI[duplicated(tx_slk_final$DONOR_ID_LI)]
+dup_donors
+repeat_donor_id <- dup_donors[1]   # get the ID
+repeat_donor_cases <- tx_slk_final %>%
+  filter(DONOR_ID_LI == repeat_donor_id)
+repeat_donor_cases
+
+
+```
+
+
+
+Now I will create a data set that contains liver-only transplants (excluding SLK patients), excludes pediatric patients, excludes patients with prior transplant, and removes duplicates. using tx_slk_final data set 
+```{r Creating Liver Only Data Set}
+#starting with all liver transplants, exclude SLK PERSIDs
+tx_li_only<-tx_li %>% 
+    filter(!PERS_ID %in% tx_slk_final$PERS_ID)
+
+#Exclude patients with prior transplants using CAN_PREV_TX
+tx_li_only_preclean <- tx_li_only %>%
+  filter(
+    (is.na(CAN_PREV_TX) | CAN_PREV_TX == 0)
+    )
+# Add first transplant info to exclude prior tx by date
+tx_li_only_clean <- tx_li_only_preclean %>%
+  left_join(first_tx, by = "PERS_ID") %>%
+  filter(first_tx_date == REC_TX_DT)  # keeps only first transplant per patient
+
+# Ensure no overlap between SLK and liver-only datasets
+intersect_ids <- intersect(tx_slk_final$PERS_ID, tx_li_only_clean$PERS_ID)
+length(intersect_ids)  # should be 0
+
+#Check counts
+cat("Liver-only rows:", nrow(tx_li_only_clean), "\n")
+cat("Unique patients:", n_distinct(tx_li_only_clean$PERS_ID), "\n")
+
+#remove duplicate patients, keeping only first liver transplant
+tx_li_only_clean %>%
+  count(PERS_ID) %>%
+  filter(n > 1) %>%
+  arrange(desc(n))
+#export pts to identify duplicates manually
+# Identify patients with more than one liver transplant
+li_dupes <- tx_li_only_clean %>%
+  count(PERS_ID) %>%
+  filter(n > 1)
+# Pull full rows for these duplicate patients
+li_dupe_rows <- tx_li_only_clean %>%
+  semi_join(li_dupes, by = "PERS_ID") %>%
+  arrange(PERS_ID, REC_TX_DT)
+#Add an empty column to flag patients for removal later
+li_dupe_rows <- li_dupe_rows %>%
+  mutate(REMOVE_FLAG = NA_character_)  # you’ll fill this manually in Excel
+
+#Export to working directory for manual review
+write_csv(
+  li_dupe_rows %>%
+    select(PERS_ID, REC_TX_DT, REC_FAIL_DT, REC_PX_STAT, REC_FAIL_REJ_ACUTE, REMOVE_FLAG, everything()),  # make important columns visible first
+  "liver_duplicate_patients_for_review_new.csv"
+)
+
+#Read manually edited file
+manual_flags <- read_csv("liver_duplicate_patients_for_review_new(in).csv")
+
+# Filter only the rows flagged for removal and keep exact PERS_ID + REC_PX_STAT
+rows_to_remove <- manual_flags %>%
+  filter(tolower(REMOVE_FLAG) == "remove") %>%
+  select(PERS_ID, REC_PX_STAT) %>%
+  distinct()  # ensures no duplicates
+
+#Remove these flagged rows from main dataset
+tx_li_only_clean2 <- tx_li_only_clean %>%
+  anti_join(rows_to_remove, by = c("PERS_ID", "REC_PX_STAT"))
+
+# Check the result
+cat("Final liver-only rows:", nrow(tx_li_only_clean2), "\n")
+cat("Unique patients:", n_distinct(tx_li_only_clean2$PERS_ID), "\n")
+```
+
+Let's process Liver only data set
+```{r Processing Liver Only Data Set}
+#Create recipient age variable and exclude pediatrics patients <16
+tx_li_only_final<-tx_li_only_clean2 %>%
+   mutate(
+     REC_AGE_YEARS = REC_AGE_IN_MONTHS_AT_TX / 12
+   ) %>%  
+  filter(REC_AGE_YEARS>=16) %>% 
+##Create numerical HIV_POSITIVE variable (assume missing is negative)
+  mutate(HIV_POSITIVE=ifelse(REC_HIV_STAT=="P", 1, 0)) %>% 
+#Calculate Liver donor BMI
+  mutate(DON_BMI=DON_WGT_KG/(DON_HGT_CM/100)^2) %>% 
+  #Turn liver failure date into a failure/censor date, with a separate variable to 
+  #determine which of the two applies
+  mutate(TFL_GRAFT_DT_LI_censor=if_else(is.na(TFL_GRAFT_DT), 
+                                   TFL_LAFUDATE,
+                                   TFL_GRAFT_DT))%>%
+  mutate(TFL_GRAFT_DT_LI_binary=ifelse(is.na(TFL_GRAFT_DT),0,1))%>%
+  mutate(TFL_GRAFT_DT_LI_yrs = (1/365)+
+      as.numeric(
+        difftime(TFL_GRAFT_DT_LI_censor, 
+                 REC_TX_DT, 
+                 units = "days")) / 365.25) %>% 
+    #Create a composite death variable
+  mutate(REC_DEATH_DT_COMPOSITE_LI=case_when(
+    !is.na(PERS_OPTN_DEATH_DT)~PERS_OPTN_DEATH_DT,
+    is.na(PERS_OPTN_DEATH_DT)&!is.na(PERS_SSA_DEATH_DT)~PERS_SSA_DEATH_DT,
+    is.na(PERS_OPTN_DEATH_DT)&is.na(PERS_SSA_DEATH_DT)~TFL_DEATH_DT
+  ))%>%
+  #Create a time to death variable
+  mutate(REC_DEATH_DT_CENSOR_LI=if_else(is.na(REC_DEATH_DT_COMPOSITE_LI), 
+                                   TFL_LAFUDATE,
+                                   REC_DEATH_DT_COMPOSITE_LI))%>%
+  mutate(REC_DEATH_BINARY_LI=ifelse(is.na(REC_DEATH_DT_COMPOSITE_LI),0,1))%>%
+  mutate(REC_DEATH_yrs_LI = 
+      as.numeric(
+        difftime(REC_DEATH_DT_CENSOR_LI, 
+                 REC_TX_DT, 
+                 units = "days")) / 365.25) %>% 
+#Create median time on waitlist until transplant variable
+  mutate(median_waitlist_time_years_li=as.numeric(difftime(REC_TX_DT,
+                                       CAN_LISTING_DT,
+                                     units="days"))/365.25) %>%
+#create year of transplant variable 
+  mutate(YEAR_TRANSPLANT=year(REC_TX_DT)) %>% 
+#create numeric MELD value
+  mutate(
+    CAN_LAST_SRTR_LAB_MELD_NUM = str_extract(
+      CAN_LAST_SRTR_LAB_MELD,
+      regex("(?<=MELD/PELD)\\s*-?\\d+", ignore_case = TRUE)
+    ),
+    CAN_LAST_SRTR_LAB_MELD_NUM = as.integer(CAN_LAST_SRTR_LAB_MELD_NUM)
+  ) %>% 
+#create separate MELD and PELD number
+  mutate(MELD_NUM_Last = ifelse(CAN_LAST_SRTR_LAB_MELD_TY == "M", 
+                             CAN_LAST_SRTR_LAB_MELD_NUM, 
+                             NA)) %>%
+#Create numeric PELD variable (only where type is "P")
+  mutate(PELD_NUM_Last = ifelse(CAN_LAST_SRTR_LAB_MELD_TY == "P", 
+                           CAN_LAST_SRTR_LAB_MELD_NUM, 
+                           NA)) %>% 
+#create numeric candidate age at listing variable 
+  mutate(
+  CAN_AGE_AT_LISTING_YR_LI = CAN_AGE_IN_MONTHS_AT_LISTING/12
+    )%>% 
+#make variable names same as in SLK (also add in any that will be in table)
+  rename(
+    DON_AGE_LI    = DON_AGE,
+    DON_GENDER_LI = DON_GENDER,
+    DON_BMI_LI    = DON_BMI,
+    DON_DEATH_MECH_LI = DON_DEATH_MECH
+  )
+
+```
+
+Load in additional data sets:
+```{r Additional data import}
+donor_deceased <- load_srtr_file("donor_deceased", factor_labels = TRUE, var_labels = TRUE)
+txf_li <- load_srtr_file("txf_li", factor_labels = TRUE, var_labels = TRUE)
+txf_ki <- load_srtr_file("txf_ki", factor_labels = TRUE, var_labels = TRUE)
+malig <- load_srtr_file("malig", factor_labels = TRUE, var_labels = TRUE)
+immuno <- load_srtr_file("immuno", factor_labels = TRUE, var_labels = TRUE)
+cand_kipa <- load_srtr_file("cand_kipa", factor_labels = TRUE, var_labels = TRUE)
+cand_liin <- load_srtr_file("cand_liin", factor_labels = TRUE, var_labels = TRUE)
+pra <- load_srtr_file("pra_hist", factor_labels = TRUE, var_labels = TRUE)
+
+```
+
+Now I want to add in the donor_deceased file, combine with the slk dataset, and process those variables
+```{r Merging Donor file with SLK file}
+# merge in donor file 
+tx_slk_final <- tx_slk_final %>%
+  left_join(donor_deceased, by = "DONOR_ID") %>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>% 
+
+# recode donor HIV NAT variable
+  mutate(DON_HIV_NAT_RECODED = case_when(
+    DON_HIV_NAT == "P" ~ "Positive",
+    DON_HIV_NAT == "N" ~ "Negative",
+    TRUE ~ NA_character_
+  )) %>% 
+
+# recode donor HCV status
+  mutate(DON_HCV_STAT_RECODED = case_when(
+    DON_HCV_STAT == "1: Positive" ~ "Positive",
+    DON_HCV_STAT == "2: Negative" ~ "Negative",
+    TRUE ~ NA_character_
+  )) %>% 
+
+# recode donor anti-HCV Ab
+  mutate(DON_ANTI_HCV_RECODED = case_when(
+    DON_ANTI_HCV == "P: Positive" ~ "Positive",
+    DON_ANTI_HCV == "N: Negative" ~ "Negative",
+    TRUE ~ NA_character_
+  )) %>% 
+
+# recode donor Hep B core Ab
+  mutate(DON_HBC_STAT_RECODED = case_when(
+    DON_HBC_STAT == "1: Positive" ~ "Positive",
+    DON_HBC_STAT == "2: Negative" ~ "Negative",
+    TRUE ~ NA_character_
+  )) %>% 
+
+# recode donor HIV Ab
+  mutate(
+    DON_ANTI_HIV_recode = case_when(
+      DON_ANTI_HIV == "P: Positive" ~ "P",
+      DON_ANTI_HIV == "N: Negative" ~ "N",
+      TRUE ~ NA_character_
+    ),
+    DON_ANTI_HIV_recode = factor(DON_ANTI_HIV_recode, levels = c("P", "N"))
+  )
+
+
+
+```
+
+Let's merge SLK with CAND_KIPA and CAND_LIIN
+```{r SLK and CAND_KIPA and CAND_LIIN}
+#join SLK data set with CAND_KIPA
+cand_kipa <- cand_kipa %>% rename(PX_ID_KI = PX_ID)
+tx_slk_final <- tx_slk_final %>% left_join(cand_kipa, by = "PX_ID_KI")%>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x"))%>%
+#recode diabetes variable  
+  mutate(
+    CAN_DIAB = case_when(
+      CAN_DIAB == "998: UNKNOWN" ~ "Unknown",
+      is.na(CAN_DIAB) ~ "Unknown",
+      TRUE ~ CAN_DIAB
+    )
+  )%>%
+#recode dialysis variable so that unknowns/NA combined 
+  mutate(
+    CAN_DIAL = case_when(
+      CAN_DIAL %in% c(
+        "998: Dialysis Status Unknown"
+      ) ~ "Unknown",
+      is.na(CAN_DIAL) ~ "Unknown",
+      TRUE ~ CAN_DIAL
+    )
+  )%>%
+#Calc candidate BMI, remove outliers 
+  mutate(
+    CAN_BMI_calc = CAN_WGT_KG / ( (CAN_HGT_CM/100)^2 ),
+    CAN_BMI_clean = ifelse(CAN_BMI_calc < 10 | CAN_BMI_calc > 60, NA, CAN_BMI_calc)
+  )%>% 
+#create dialysis time in days variable, and create separate variable in years
+    mutate(
+    CAN_DIAL_DT = as.Date(CAN_DIAL_DT),
+    REC_TX_DT_KI = as.Date(REC_TX_DT_KI),
+    
+    TIME_ON_DIALYSIS_DAYS = as.numeric(REC_TX_DT_KI - CAN_DIAL_DT),
+    
+    TIME_ON_DIALYSIS_DAYS = ifelse(
+      TIME_ON_DIALYSIS_DAYS < 0,
+      NA,
+      TIME_ON_DIALYSIS_DAYS
+    )
+  ) %>% 
+  mutate(
+    TIME_ON_DIALYSIS_YEARS = TIME_ON_DIALYSIS_DAYS / 365.25
+  ) %>% 
+#clean candidate functional status variable
+  mutate(
+    # pull the leading numeric code before the colon
+    CAN_FUNCTN_STAT_code = as.integer(str_extract(as.character(CAN_FUNCTN_STAT), "^\\d+")),
+    
+    # set pediatrics (4000s) + 996/998 to NA; otherwise keep original text
+    CAN_FUNCTN_STAT_clean = case_when(
+      CAN_FUNCTN_STAT_code %in% c(996L, 998L) ~ NA_character_,
+      CAN_FUNCTN_STAT_code >= 4000L & CAN_FUNCTN_STAT_code < 5000L ~ NA_character_,
+      TRUE ~ as.character(CAN_FUNCTN_STAT)
+    )
+  )
+
+#keep original labels
+var_label(tx_slk_final$CAN_DIAL)<-var_label(cand_kipa$CAN_DIAL)
+var_label(tx_slk_final$CAN_DIAB)<-var_label(cand_kipa$CAN_DIAB)
+var_label(tx_slk_final$CAN_FUNCTN_STAT_clean)<-var_label(cand_kipa$CAN_FUNCTN_STAT)
+
+
+table(tx_slk_final$CAN_FUNCTN_STAT_clean)
+# merge CAND_LIIN and tx_slk_final, process variables 
+cand_liin <- cand_liin %>% 
+  rename(PX_ID_LI = PX_ID) 
+
+# list of variables to recode to 3 levels (Y,N,U)
+vars_to_recode <- c(
+  "CAN_PORTAL_VEIN",
+  "CAN_TIPSS",
+  "CAN_BACTERIA_PERIT",
+  "CAN_ASCITES",
+  "CAN_ENCEPH"
+)
+
+tx_slk_final <- tx_slk_final %>% 
+  left_join(cand_liin, by = "PX_ID_LI") %>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>%
+  
+  # Recode Y/N/U vars and create *_recode
+  mutate(across(
+    all_of(vars_to_recode),
+    ~ case_when(
+        . == "Y" ~ "Y",
+        . == "N" ~ "N",
+        . %in% c("U", "", NA_character_) ~ "U",
+        TRUE ~ "U"  # any unexpected value treated as unknown
+    ),
+    .names = "{.col}_recode"
+  )) %>%
+  
+  # Convert all new recoded variables to factor with levels Y, N, U
+  mutate(across(
+    ends_with("_recode"),
+    ~ factor(., levels = c("Y", "N", "U"))
+  )) %>%
+  # Carry over labels from the original variable to the *_recode versions
+  mutate(across(
+    ends_with("_recode"),
+    ~ labelled::set_variable_labels(
+        .,
+        attr(
+          pick(sub("_recode$", "", cur_column()))[[1]],
+          "label"
+        )
+      )
+  ))
+```
+
+
+
+Let's perform univariate analysis of final SLK data set, HIV slk vs not-HIV SLK, SLK HIV vs Liver only HIV
+```{r Making Tables}
+
+#make lists of variables of interest
+Don_Var_List<-c("DON_AGE",
+                "DON_GENDER",
+                "DON_ETHNICITY_SRTR",
+                "DON_RACE",
+                "DON_EXPAND_DON_KI",
+                "DON_DEATH_MECH_CAT",
+                "DON_HIV_NAT_RECODED",
+                "DON_ANTI_HIV_recode",
+                "DON_HCV_STAT_RECODED",
+                "DON_ANTI_HCV_RECODED",
+                "DON_HBC_STAT_RECODED"
+                )
+
+Rec_Li_Var_List<-c("REC_AGE_YEARS",
+                   "REC_AGE_AT_TX",
+                   "REC_COLD_ISCH_TM_LI",
+                   "TRANSPLANT_REASON_LI",
+                   "REC_FAIL_HEP_DENOVO_recode",
+                   "REC_FAIL_HEP_RECUR_recode",
+                   "REC_FAIL_VASC_THROMB_recode",
+                   "REC_FAIL_INFECT_LI_recode",
+                   "REC_FAIL_RECUR_DISEASE_LI_recode",
+                   "REC_FAIL_REJ_ACUTE_LI_recode",
+                   "REC_ACUTE_REJ_EPISODE_LI",
+                   "TFL_GRAFT_DT_LI_yrs",
+                   "REC_DEATH_yrs"
+                  )
+Rec_Ki_Var_List<-c("REC_ACUTE_REJ_EPISODE_KI",
+                   "REC_COLD_ISCH_TM_KI",
+                   "TRANSPLANT_REASON_KI",
+                   "TRANSPLANT_REASON_KI_COLLAPSED",
+                   "REC_FAIL_GRAFT_THROMB_KI",
+                   "REC_FAIL_INFECT_KI_recode",
+                   "REC_FAIL_RECUR_DISEASE_KI_recode",
+                   "REC_FAIL_REJ_ACUTE_KI_recode",
+                   "REC_FAIL_SURG_COMPL_recode",
+                   "REC_FAIL_UROL_COMPL_recode",
+                   "REC_HBV_ANTIBODY_COMB",
+                   "REC_HBV_SURF_ANTIGEN_COMB",
+                   "REC_HCV_STAT_COMB",
+                   "REC_CMV_COMBINED",
+                   "REC_MALIG_TY_HEPCARCINOMA_COMB",
+                   "REC_MALIG_TY_LIVER_COMB",
+                   "TFL_GRAFT_DT_KI_yrs"
+                   )
+Cand_Li_Var_List<-c("CAN_PORTAL_VEIN_recode",
+                    "CAN_TIPSS_recode",
+                    "CAN_ASCITES_recode",
+                    "CAN_BACTERIA_PERIT_recode",
+                    "CAN_ENCEPH_recode",
+                    "CAN_LAST_ASCITES",
+                    "CAN_LAST_ALBUMIN",
+                    "CAN_LAST_BILI",
+                    "CAN_LAST_INR",
+                    "CAN_LAST_SERUM_CREAT",
+                    "CAN_LAST_SERUM_SODIUM",
+                    "CAN_LAST_ENCEPH",
+                    "MELD_NUM_Init",
+                    "MELD_NUM_Last",
+                    "DON_TY",
+                    "median_waitlist_time_years_li"
+                    )
+Cand_Ki_Var_List<-c("CAN_AGE_AT_LISTING_YR_KI",
+                    "CAN_GENDER",
+                    "CAN_ETHNICITY_SRTR",
+                    "CAN_RACE",
+                    "CAN_RACE_collapsed",
+                    "CAN_BMI_clean",
+                    "CAN_CREAT_CLEAR",
+                    "CAN_DIAB",
+                    "CAN_DIAL",
+                    "TIME_ON_DIALYSIS_YEARS",
+                    "CAN_DRUG_TREAT_HYPERTEN_COMB",
+                    "CAN_FUNCTN_STAT_clean",
+                    "CAN_GFR",
+                    "CAN_MALIG_COMB",
+                    "median_waitlist_time_years_ki"
+)
+
+
+#create donor characteristics table 
+don_table <-
+  tbl_summary(
+    tx_slk_final,
+    include = all_of(Don_Var_List),
+    by = HIV_POSITIVE,
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    digits = all_continuous() ~ 2,
+    label = list(
+      DON_DEATH_MECH_CAT ~ "Donor Death Mechanism",
+      DON_AGE ~ "Donor Age",
+      DON_GENDER ~ "Donor Gender",
+      DON_ETHNICITY_SRTR ~ "Donor Ethnicity",
+      DON_RACE ~ "Donor Race",
+      DON_EXPAND_DON_KI ~ "Meets Expanded Kidney Donor Criteria",
+      DON_HIV_NAT_RECODED ~ "Donor HIV RNA NAT Serology",
+      DON_HCV_STAT_RECODED ~ "Donor HCV Status",
+      DON_ANTI_HCV_RECODED ~ "Donor Anti-HCV Status",
+      DON_HBC_STAT_RECODED ~ "Donor HBC Status",
+      DON_ANTI_HIV_recode ~ "Donor Anti-HIV Status"
+    )
+  ) %>%
+  add_p(
+    test = all_categorical() ~ "fisher.test",
+    test.args = all_categorical() ~ list(simulate.p.value = TRUE, B = 10000)
+  ) %>%
+  modify_spanning_header(c(stat_1, stat_2) ~ "**Recipient HIV Status**") %>%
+  bold_labels() %>%
+  modify_table_body(
+    ~ .x %>%
+      dplyr::mutate(
+        label = dplyr::case_when(
+          
+          # F/M recode for donor gender
+          variable == "DON_GENDER" & label == "F" ~ "Female",
+          variable == "DON_GENDER" & label == "M" ~ "Male",
+          
+          # everything else unchanged
+          TRUE ~ label
+        )
+      )
+  ) %>%
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "SLK Donor Characteristics"
+  ) %>%
+  gt::gtsave("don_table.png")
+
+
+#create recipient table for liver variables 
+rec_li_table <- tbl_summary(
+    data = tx_slk_final,
+    include = all_of(Rec_Li_Var_List),
+    by = HIV_POSITIVE,     
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    digits = all_continuous() ~ 2,
+    label = list(REC_AGE_YEARS ~ "Recipient Age (Years)", REC_AGE_AT_TX ~ "Recipient Age at Transplant", TRANSPLANT_REASON_LI ~ "Primary Liver Diagnosis", REC_FAIL_HEP_DENOVO_recode~"Cause of Graft Failure: Hepatitis: Denovo", REC_FAIL_VASC_THROMB_recode~"	Cause of Graft Failure: Vascular Thrombosis", REC_FAIL_INFECT_LI_recode="Cause of Graft Failure: Infection", REC_FAIL_REJ_ACUTE_LI_recode~"Cause of Graft Failure: Acute Rejection", REC_FAIL_HEP_RECUR_recode~ "Cause of Graft Failure: Recurrent Hepatitis", REC_ACUTE_REJ_EPISODE_LI~"Acute Liver Rejection Episode between Transplant and Discharge", TFL_GRAFT_DT_LI_yrs~"Time to Graft Failure (Years)", REC_DEATH_yrs~"Follow-up time (Years)", REC_FAIL_RECUR_DISEASE_LI_recode~"Cause of Graft Failure: Recurrent Disease" )
+  ) %>%
+  add_p(
+    test = all_categorical() ~ "fisher.test",
+    test.args = all_categorical() ~ list(simulate.p.value = TRUE, B = 10000)
+  ) %>%
+  modify_spanning_header(c(stat_1, stat_2) ~ "**HIV Status**") %>% 
+  modify_table_body(
+    ~ .x %>%
+      dplyr::mutate(
+        label = dplyr::case_when(
+          label == "Y" ~ "Yes",
+          label == "N" ~ "No",
+          label == "U" ~ "Unknown",
+          TRUE ~ label
+        )
+      )
+  ) %>% 
+  bold_labels() %>%   
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "SLK Recipient Characteristics - Liver Variables"
+  ) %>% 
+  gt::gtsave("rec_li_table.png")
+
+##create recipient table for kidney variables 
+rec_ki_table<- tbl_summary(
+    data = tx_slk_final,
+    include = all_of(Rec_Ki_Var_List),
+    by = HIV_POSITIVE,     
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    digits = all_continuous() ~ 2,
+    label = list(REC_ACUTE_REJ_EPISODE_KI~"Acute Kidney Rejection Episode between Transplant and Discharge", TRANSPLANT_REASON_KI ~ "Primary Kidney Diagnosis", REC_FAIL_GRAFT_THROMB_KI~"	Cause of Graft Failure: Vascular Thrombosis", REC_FAIL_INFECT_KI_recode="Cause of Graft Failure: Infection", REC_FAIL_RECUR_DISEASE_KI_recode~"Cause of Graft Failure: Recurrent Disease", REC_FAIL_REJ_ACUTE_KI_recode~"Cause of Graft Failure: Acute Rejection", REC_FAIL_SURG_COMPL_recode~"Cause of Graft Failure:Surgical Complications", REC_FAIL_UROL_COMPL_recode~"Cause of Graft Failure: Urological Complications", TFL_GRAFT_DT_KI_yrs~"Time to Graft Failure (Years)", REC_HBV_ANTIBODY_COMB~"Recipient HBV Core Antibody",REC_HBV_SURF_ANTIGEN_COMB~"Recipient HBV Surface Antigen", REC_HCV_STAT_COMB~"Recipient HCV Status", REC_MALIG_TY_HEPCARCINOMA_COMB~"Previous Malignancy - Hepatocellular Carcinoma", REC_MALIG_TY_LIVER_COMB~"Previous Malignancy - Liver")
+  ) %>%
+  add_p(
+    test = all_categorical() ~ "fisher.test",
+    test.args = all_categorical() ~ list(simulate.p.value = TRUE, B = 10000)
+  ) %>%
+  modify_spanning_header(c(stat_1, stat_2) ~ "**HIV Status**") %>% 
+  bold_labels() %>%
+  modify_table_body(
+    ~ .x %>%
+      dplyr::mutate(
+      label = dplyr::case_when(
+        variable %in% c(
+          "REC_FAIL_GRAFT_THROMB_recode",
+          "REC_FAIL_INFECT_KI_recode",
+          "REC_FAIL_RECUR_DISEASE_KI_recode",
+          "REC_FAIL_REJ_ACUTE_KI_recode",
+          "REC_FAIL_SURG_COMPL_recode",
+          "REC_FAIL_UROL_COMPL_recode",
+          "REC_FAIL_GRAFT_THROMB_KI",
+          "REC_MALIG_TY_LIVER_COMB",
+          "REC_MALIG_TY_HEPCARCINOMA_COMB"
+        ) & label == "Y" ~ "Yes",
+        variable %in% c(
+          "REC_FAIL_GRAFT_THROMB_recode",
+          "REC_FAIL_INFECT_KI_recode",
+          "REC_FAIL_RECUR_DISEASE_KI_recode",
+          "REC_FAIL_REJ_ACUTE_KI_recode",
+          "REC_FAIL_SURG_COMPL_recode",
+          "REC_FAIL_UROL_COMPL_recode",
+          "REC_FAIL_GRAFT_THROMB_KI",
+          "REC_MALIG_TY_LIVER_COMB",
+          "REC_MALIG_TY_HEPCARCINOMA_COMB"
+        ) & label == "N" ~ "No",
+        variable %in% c(
+          "REC_FAIL_GRAFT_THROMB_recode",
+          "REC_FAIL_INFECT_KI_recode",
+          "REC_FAIL_RECUR_DISEASE_KI_recode",
+          "REC_FAIL_REJ_ACUTE_KI_recode",
+          "REC_FAIL_SURG_COMPL_recode",
+          "REC_FAIL_UROL_COMPL_recode",
+          "REC_FAIL_GRAFT_THROMB_KI",
+          "REC_MALIG_TY_LIVER_COMB",
+          "REC_MALIG_TY_HEPCARCINOMA_COMB"
+        ) & label == "U" ~ "Unknown",
+
+        #Variables using P / N / U => Positive / Negative / Unknown
+        variable %in% c(
+          "REC_HBV_ANTIBODY_COMB",
+          "REC_HBV_SURF_ANTIGEN_COMB",
+          "REC_HCV_STAT_COMB",
+          "REC_CMV_COMBINED"
+        ) & label == "P" ~ "Positive",
+        variable %in% c(
+          "REC_HBV_ANTIBODY_COMB",
+          "REC_HBV_SURF_ANTIGEN_COMB",
+          "REC_HCV_STAT_COMB",
+          "REC_CMV_COMBINED"
+        ) & label == "N" ~ "Negative",
+        variable %in% c(
+          "REC_HBV_ANTIBODY_COMB",
+          "REC_HBV_SURF_ANTIGEN_COMB",
+          "REC_HCV_STAT_COMB",
+          "REC_CMV_COMBINED"
+        ) & label == "U" ~ "Unknown",
+        TRUE ~ label
+      )
+    )
+) %>% 
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "SLK Recipient Characteristics - Kidney Variables"
+  ) %>% 
+  gt::gtsave("rec_ki_table.png")
+  
+#create table for candidate liver variables 
+cand_li_table <- tbl_summary(
+    data = tx_slk_final,
+    include = all_of(Cand_Li_Var_List),
+    by = HIV_POSITIVE,     
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    digits = all_continuous() ~ 2,
+    label = list(
+      MELD_NUM_Init ~ "Initial MELD Score",
+      MELD_NUM_Last ~ "Final MELD Score",
+      CAN_LAST_ASCITES ~ "Candidate Last Ascites",
+      CAN_LAST_ENCEPH ~ "Candidate Last Encephalopathy",
+      median_waitlist_time_years_li ~ "Median Waitlist Time (years)"
+  )) %>%
+  add_p(
+    test = all_categorical() ~ "fisher.test",
+    test.args = all_categorical() ~ list(simulate.p.value = TRUE, B = 10000)
+  ) %>%
+  modify_spanning_header(c(stat_1, stat_2) ~ "**HIV Status**") %>% 
+  modify_table_body(
+    ~ .x %>%
+      dplyr::mutate(
+        label = dplyr::case_when(
+          label == "Y" ~ "Yes",
+          label == "N" ~ "No",
+          label == "U" ~ "Unknown",
+          TRUE ~ label
+        )
+      )
+  ) %>% 
+  bold_labels() %>%   
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "SLK Candidate Characteristics - Liver Variables"
+  ) %>% 
+  gt::gtsave("cand_li_table.png")
+
+
+#create table for candidate kidney variables 
+cand_kipa_table <- tbl_summary(
+    data = tx_slk_final,
+    include = all_of(Cand_Ki_Var_List),
+    by = HIV_POSITIVE,     
+    missing = "ifany",
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    digits = all_continuous() ~ 2,
+    label = list(CAN_DIAL ~ "Dialysis", 
+                 CAN_DIAB ~ "Diabetes", 
+                 CAN_RACE ~ "Candidate Race", 
+                 CAN_ETHNICITY_SRTR~"Candidate Ethnicity", 
+                 median_waitlist_time_years_ki~"Median Waitlist Time (Years)", 
+                 CAN_FUNCTN_STAT_clean~"Candidate Functional Status", 
+                 CAN_AGE_AT_LISTING_YR_KI~ "Candidate Age at Listing (Years)", 
+                 CAN_GENDER ~ "Candidate Gender",
+                 TIME_ON_DIALYSIS_YEARS ~ "Time on Dialysis Prior to Transplant (Years)",
+                 CAN_BMI_clean ~ "Candidate BMI (kg/m^2)")) %>%
+  add_p(
+    test = all_categorical() ~ "fisher.test",
+    test.args = all_categorical() ~ list(simulate.p.value = TRUE, B = 10000)
+  ) %>%
+  modify_spanning_header(c(stat_1, stat_2) ~ "**HIV Status**") %>% 
+  modify_table_body(
+    ~ .x %>%
+      dplyr::mutate(
+        label = dplyr::case_when(
+          label == "Y" ~ "Yes",
+          label == "N" ~ "No",
+          label == "U" ~ "Unknown",
+          TRUE ~ label
+        )
+      )
+  ) %>% 
+  bold_labels() %>%
+  modify_table_body(
+    ~ .x %>%
+      dplyr::mutate(
+        label = dplyr::case_when(
+          # F/M recode for donor gender
+          variable == "CAN_GENDER" & label == "F" ~ "Female",
+          variable == "CAN_GENDER" & label == "M" ~ "Male",
+          
+          # everything else unchanged
+          TRUE ~ label
+        )
+      )
+  ) %>% 
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "SLK Candidate Characteristics - Kidney Variables"
+  ) %>% 
+  gt::gtsave("cand_ki_table.png")
+
+
+
+
+
+
+##below from pancreas code for example
+Matching_Variable_List<-c("PDRI",
+                          "TRANSPLANT_REASON",
+                          "REC_AGE_AT_TX",
+                          "CAN_GENDER",
+                          "REC_RACE_FACTOR")
+
+
+Demographic_Variable_List<-c("DON_BMI",
+                             "DON_WGT_KG",
+                             "DON_HGT_CM",
+                             "DON_GENDER",
+                             "DON_AGE_IN_MONTHS",
+                             "DON_CREAT",
+                             "DON_RACE",
+                             "DON_RACE_FACTOR",
+                             "DON_COD_DON_STROKE",
+                             "REC_PA_PRESERV_TM",
+                             "REC_PREV_KI",
+                             "DON_HIST_DIAB",
+                             "REC_DUCT_FACTOR",
+                             "REC_WGT_KG",
+                             "REC_BMI",
+                             "CAN_LAST_ALLOC_PRA",
+                             "CAN_LAST_CUR_PRA",
+                             "CAN_LAST_SRTR_PEAK_PRA",
+                             "DON_ANTI_HCV",
+                             "REC_CMV_STAT",
+                             "REC_CMV_IGG",
+                             "REC_HCV_STAT",
+                             "DON_ANTI_CMV",
+                             "Center_volume_factor_pancreas",
+                             "Center_volume_factor_kidney",
+                             "Total_center_volume_pancreas",
+                             "Total_center_volume_kidney",
+                             "Center_HIV_volume_kidney",
+                             "center_HIV_volume_kidney_factor",
+                             "median_waitlist_time_years"
+                             )
+
+Outcome_Variable_List<-c("REC_POSTX_LOS",
+                         "TFL_GRAFT_DT_KI", 
+                         "TFL_GRAFT_DT_KI_censor",
+                         "TFL_GRAFT_DT_KI_binary",
+                         "TFL_GRAFT_DT_KI_yrs",
+                         "TFL_GRAFT_DT_PA", 
+                         "TFL_GRAFT_DT_PA_censor",
+                         "TFL_GRAFT_DT_PA_binary",
+                         "TFL_GRAFT_DT_PA_yrs",
+                         "REC_ACUTE_REJ_EPISODE_KI",
+                         "REC_ACUTE_REJ_EPISODE_PA",
+                         "REC_ANAST_LEAK",
+                         "REC_ABSCESS",
+                         "REC_PANCREATITIS",
+                         "REC_REJ_DT_KI_CENSOR",
+                         "REC_REJ_KI_BINARY",
+                         "FIRST_FU_REJ_DATE_KI",
+                         "REC_REJ_TIME_KI_yrs",
+                         "REC_REJ_DT_PA_CENSOR",
+                         "REC_REJ_PA_BINARY",
+                         "FIRST_FU_REJ_DATE_PA",
+                         "REC_REJ_TIME_PA_yrs",
+                         "PERS_OPTN_DEATH_DT",
+                         "REC_DEATH_DT_COMPOSITE",
+                         "REC_DEATH_DT_CENSOR",
+                         "REC_DEATH_BINARY",
+                         "REC_DEATH_yrs",
+                         "REC_COD",
+                         "REC_COD2",
+                         "REC_COD3",
+                         "REC_MALIG_DT_CENSOR", 
+                         "REC_MALIG_BINARY", 
+                         "REC_MALIG_TIME_yrs")
+
+```
+
+Manuscript Matching
+```{r Manuscript Matching}
+#prepare matching data set
+match_df <- tx_slk_final %>%
+  filter(YEAR_TRANSPLANT >= 2005) %>%
+  select(
+    PERS_ID,
+    HIV_POSITIVE,
+    YEAR_TRANSPLANT,
+    REC_TX_DT,
+    ERA,
+
+    # recipient
+    REC_AGE_YEARS,
+    CAN_GENDER,
+    CAN_RACE,
+    CAN_RACE_collapsed,
+    MELD_NUM_Last,
+    TRANSPLANT_REASON_LI,
+    TRANSPLANT_REASON_KI,
+    TRANSPLANT_REASON_KI_COLLAPSED,
+    REC_HCV_STAT_COMB,
+    REC_CMV_COMBINED,
+    REC_HBV_SURF_ANTIGEN_COMB,
+    REC_HBV_ANTIBODY_COMB,
+    REC_DEATH_yrs,
+    REC_DEATH_BINARY,
+    TFL_GRAFT_DT_KI,
+    TFL_GRAFT_DT_KI_binary,
+    TFL_GRAFT_DT_KI_yrs,
+    TFL_GRAFT_DT_KI_censor,
+    TFL_GRAFT_DT_LI,
+    TFL_GRAFT_DT_LI_binary,
+    TFL_GRAFT_DT_LI_yrs,
+    TFL_GRAFT_DT_LI_censor,
+    los_days,
+    los_days_inclusive,
+    
+    # donor
+    DON_AGE,
+    DON_GENDER,
+    DONOR_ID
+  ) %>%
+  mutate(
+    YEAR_TRANSPLANT = factor(YEAR_TRANSPLANT),
+    CAN_GENDER = factor(CAN_GENDER),
+    DON_GENDER = factor(DON_GENDER),
+    CAN_RACE_collapsed   = factor(CAN_RACE_collapsed),
+    TRANSPLANT_REASON_LI = factor(TRANSPLANT_REASON_LI),
+    TRANSPLANT_REASON_KI = factor(TRANSPLANT_REASON_KI),
+    TRANSPLANT_REASON_KI_COLLAPSED = factor(TRANSPLANT_REASON_KI_COLLAPSED),
+    REC_HCV_STAT_COMB = factor(REC_HCV_STAT_COMB)
+    
+  )
+
+
+
+#convert transplant date to numeric and check
+match_df$REC_TX_DT <- as.Date(match_df$REC_TX_DT)
+match_df$REC_TX_DT_num <- as.numeric(match_df$REC_TX_DT)
+summary(match_df$REC_TX_DT)
+summary(match_df$REC_TX_DT_num)
+
+
+#turn NAs into "Missing"
+# After: match_df <- readRDS("...")
+
+# Helper: convert NA / "" / " " to "Missing" and return a factor
+make_missing_level <- function(x, missing_label = "Missing") {
+  x <- as.character(x)
+  x <- trimws(x)
+  x[x == ""] <- NA
+  x[is.na(x)] <- missing_label
+  factor(x)
+}
+
+# Apply to the covariates MatchIt complained about
+match_df$REC_HCV_STAT_COMB <- make_missing_level(match_df$REC_HCV_STAT_COMB, "Missing")
+match_df$REC_CMV_COMBINED <- make_missing_level(match_df$REC_CMV_COMBINED, "Missing")
+match_df$REC_HBV_SURF_ANTIGEN_COMB <- make_missing_level(match_df$REC_HBV_SURF_ANTIGEN_COMB, "Missing")
+match_df$REC_HBV_ANTIBODY_COMB <- make_missing_level(match_df$REC_HBV_ANTIBODY_COMB, "Missing")
+
+#save dataset for matching, export to baseR 
+# Save updated dataset for base R matching
+saveRDS(match_df, "~/Desktop/slk_match/match_df_for_baseR_cmv_hbv.rds")
+
+#Base R matching formula
+# > ps_formula <- HIV_POSITIVE ~
+# +   REC_AGE_YEARS +
+# +   CAN_GENDER +
+# +   CAN_RACE_collapsed +
+# +   MELD_NUM_Last +
+# +   REC_HCV_STAT_COMB +
+# +   TRANSPLANT_REASON_LI +
+# +   TRANSPLANT_REASON_KI_COLLAPSED +
+# +   DON_AGE +
+# +   DON_GENDER +
+# +   REC_HBV_SURF_ANTIGEN_COMB +
+# +   REC_CMV_COMBINED
+# # > 
+# > m_full_cmv_hbv <- matchit(
+# +   formula     = ps_formula,
+# +   data        = match_df,
+# +   method      = "nearest",
+# +   ratio       = 5,
+# +   exact       = ~ ERA,                   # <-- exact match on era
+# +   caliper     = c(REC_TX_DT_num = 365),  # <-- 365-day caliper on tx date
+# +   std.caliper = FALSE
+# + )
+
+
+#export match back into Rstudio
+matched_obj <- readRDS("~/Desktop/slk_match/matched_cmv_hbv_era_exact_txcal365.rds")
+
+dim(matched_obj)
+table(matched_obj$HIV_POSITIVE)
+summary(matched_obj$weights)
+"subclass" %in% names(matched_obj)   # should be TRUE
+
+#build matched dataset
+
+# Keep only the matching metadata + your join key
+match_meta <- matched_obj %>%
+  dplyr::select(PERS_ID, subclass, weights, distance)
+
+# Pull all analysis variables from tx_slk_final for the matched people
+matched_df <- tx_slk_final %>%
+  dplyr::semi_join(match_meta, by = "PERS_ID") %>%   # keeps only matched people
+  dplyr::left_join(match_meta, by = "PERS_ID")       # adds subclass/weights/distance back
+
+# Sanity checks
+stopifnot(nrow(matched_df) == nrow(matched_obj))     # should match
+stopifnot(!any(is.na(matched_df$subclass)))          # subclass should exist for all
+table(matched_df$HIV_POSITIVE)
+
+
+var_labels <- c(
+
+  # Donor variables
+  DON_AGE = "Donor age (years)",
+  DON_GENDER = "Donor sex",
+  DON_ETHNICITY_SRTR = "Donor ethnicity",
+  DON_RACE = "Donor race",
+  DON_EXPAND_DON_KI = "Expanded criteria donor (kidney)",
+  DON_DEATH_MECH_CAT = "Donor mechanism of death",
+  DON_HIV_NAT_RECODED = "Donor HIV NAT",
+  DON_ANTI_HIV_recode = "Donor anti-HIV antibody",
+  DON_HCV_STAT_RECODED = "Donor HCV status",
+  DON_ANTI_HCV_RECODED = "Donor anti-HCV antibody",
+  DON_HBC_STAT_RECODED = "Donor hepatitis B core antibody",
+
+  # Recipient – Liver
+  REC_AGE_YEARS = "Recipient age (years)",
+  REC_AGE_AT_TX = "Recipient age at transplant (years)",
+  REC_COLD_ISCH_TM_LI = "Liver cold ischemia time (hours)",
+  TRANSPLANT_REASON_LI = "Primary liver diagnosis",
+  REC_FAIL_HEP_DENOVO_recode = "De novo hepatitis after transplant",
+  REC_FAIL_HEP_RECUR_recode = "Recurrent hepatitis after transplant",
+  REC_FAIL_VASC_THROMB_recode = "Liver graft failure due to vascular thrombosis",
+  REC_FAIL_INFECT_LI_recode = "Liver graft failure due to infection",
+  REC_FAIL_RECUR_DISEASE_LI_recode = "Liver graft failure due to recurrent disease",
+  REC_FAIL_REJ_ACUTE_LI_recode = "Liver graft failure due to acute rejection",
+  REC_ACUTE_REJ_EPISODE_LI = "Acute liver rejection before discharge",
+  TFL_GRAFT_DT_LI_yrs = "Time to liver graft failure (years)",
+  REC_DEATH_yrs = "Time to death (years)",
+
+  # Recipient – Kidney
+  REC_ACUTE_REJ_EPISODE_KI = "Acute kidney rejection before discharge",
+  REC_COLD_ISCH_TM_KI = "Kidney cold ischemia time (hours)",
+  TRANSPLANT_REASON_KI = "Primary kidney diagnosis",
+  REC_FAIL_GRAFT_THROMB_KI = "Kidney graft failure due to thrombosis",
+  REC_FAIL_INFECT_KI_recode = "Kidney graft failure due to infection",
+  REC_FAIL_RECUR_DISEASE_KI_recode = "Kidney graft failure due to recurrent disease",
+  REC_FAIL_REJ_ACUTE_KI_recode = "Kidney graft failure due to acute rejection",
+  REC_FAIL_SURG_COMPL_recode = "Kidney graft failure due to surgical complication",
+  REC_FAIL_UROL_COMPL_recode = "Kidney graft failure due to urologic complication",
+  REC_HBV_ANTIBODY_COMB = "Recipient hepatitis B antibody",
+  REC_HBV_SURF_ANTIGEN_COMB = "Recipient hepatitis B surface antigen",
+  REC_HCV_STAT_COMB = "Recipient hepatitis C status",
+  REC_CMV_COMBINED = "Recipient CMV status",
+  REC_MALIG_TY_HEPCARCINOMA_COMB = "History of hepatocellular carcinoma",
+  REC_MALIG_TY_LIVER_COMB = "History of other liver malignancy",
+  TFL_GRAFT_DT_KI_yrs = "Time to kidney graft failure (years)",
+
+  # Candidate – Liver
+  CAN_PORTAL_VEIN_recode = "Portal vein thrombosis",
+  CAN_TIPSS_recode = "Prior TIPS",
+  CAN_ASCITES_recode = "Ascites at listing",
+  CAN_BACTERIA_PERIT_recode = "History of bacterial peritonitis",
+  CAN_ENCEPH_recode = "Hepatic encephalopathy at listing",
+  CAN_LAST_ASCITES = "Ascites at transplant",
+  CAN_LAST_ALBUMIN = "Serum albumin at transplant (g/dL)",
+  CAN_LAST_BILI = "Total bilirubin at transplant (mg/dL)",
+  CAN_LAST_INR = "INR at transplant",
+  CAN_LAST_SERUM_CREAT = "Serum creatinine at transplant (mg/dL)",
+  CAN_LAST_SERUM_SODIUM = "Serum sodium at transplant (mEq/L)",
+  CAN_LAST_ENCEPH = "Encephalopathy at transplant",
+  MELD_NUM_Init = "Initial MELD score",
+  MELD_NUM_Last = "MELD score at transplant",
+  DON_TY = "Donor type",
+  median_waitlist_time_years_li = "Median liver waitlist time (years)",
+
+  # Candidate – Kidney
+  CAN_AGE_AT_LISTING_YR_KI = "Age at kidney listing (years)",
+  CAN_GENDER = "Recipient sex",
+  CAN_ETHNICITY_SRTR = "Recipient ethnicity",
+  CAN_RACE = "Recipient race",
+  CAN_RACE_collapsed = "Recipient race collapsed",
+  CAN_BMI_clean = "Body mass index (kg/m²)",
+  CAN_CREAT_CLEAR = "Creatinine clearance",
+  CAN_DIAB = "Diabetes mellitus",
+  CAN_DIAL = "On dialysis at listing",
+  TIME_ON_DIALYSIS_YEARS = "Time on dialysis (years)",
+  CAN_DRUG_TREAT_HYPERTEN_COMB = "Treated hypertension",
+  CAN_FUNCTN_STAT_clean = "Functional status",
+  CAN_GFR = "Glomerular filtration rate",
+  CAN_MALIG_COMB = "History of malignancy",
+  median_waitlist_time_years_ki = "Median kidney waitlist time (years)"
+)
+
+
+#fix variable levels
+recode_YNU <- function(x) {
+  recode(x,
+         "Y" = "Yes",
+         "N" = "No",
+         "U" = "Unknown",
+         .default = as.character(x))
+}
+
+recode_PNU <- function(x) {
+  recode(x,
+         "P" = "Positive",
+         "N" = "Negative",
+         "U" = "Unknown",
+         .default = as.character(x))
+}
+
+
+
+matched_df <- matched_df %>%
+  set_variable_labels(
+    DON_AGE = "Donor age, years",
+    DON_GENDER = "Donor sex",
+    DON_RACE = "Donor race",
+    DON_HIV_NAT_RECODED = "Donor HIV status (NAT)",
+    DON_ANTI_HIV_recode = "Donor anti-HIV antibody",
+    CAN_BMI_clean = "Recipient BMI",
+    CAN_GENDER = "Recipient sex",
+    CAN_RACE_collapsed = "Recipient race",
+    REC_AGE_YEARS = "Recipient age, years",
+    TRANSPLANT_REASON_LI = "Primary Liver Diagnosis",
+    TRANSPLANT_REASON_KI_COLLAPSED = "Primary Kidney Diagnosis",
+    MELD_NUM_Last = "MELD score at transplant",
+    TIME_ON_DIALYSIS_YEARS = "Time on dialysis, years"
+  )
+
+matched_df <- matched_df %>%
+  mutate(
+    REC_HBV_ANTIBODY_COMB = recode_PNU(REC_HBV_ANTIBODY_COMB),
+    REC_HBV_SURF_ANTIGEN_COMB = recode_PNU(REC_HBV_SURF_ANTIGEN_COMB),
+    REC_HCV_STAT_COMB = recode_PNU(REC_HCV_STAT_COMB),
+    REC_CMV_COMBINED = recode_PNU(REC_CMV_COMBINED)
+  )
+
+make_gtsummary_labels <- function(named_vec) {
+  lapply(names(named_vec), function(v) {
+    as.formula(paste0(v, " ~ ", shQuote(unname(named_vec[[v]]))))
+  })
+}
+
+label_list <- make_gtsummary_labels(var_labels)
+
+
+tbl_dat <- matched_df %>%
+  dplyr::select(
+    HIV_POSITIVE,
+    all_of(Don_Var_List),
+    all_of(Rec_Li_Var_List),
+    all_of(Rec_Ki_Var_List),
+    all_of(Cand_Li_Var_List),
+    all_of(Cand_Ki_Var_List)
+  )
+
+# "self-healing" labels: only keep labels for vars that exist in tbl_dat
+label_list_ok <- label_list[names(label_list) %in% names(tbl_dat)]
+
+
+tab1 <-
+  tbl_dat %>%
+  gtsummary::tbl_summary(
+    by = HIV_POSITIVE,
+    missing = "ifany",
+    statistic = list(
+      gtsummary::all_continuous() ~ "{median} ({p25}, {p75})",
+      gtsummary::all_categorical() ~ "{n} ({p}%)"
+    ),
+    label = label_list_ok
+  ) %>%
+  gtsummary::add_p(
+    test = gtsummary::all_categorical() ~ "fisher.test",
+    test.args = gtsummary::all_categorical() ~ list(simulate.p.value = TRUE)
+  ) %>%
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "Characteristics of HIV-positive and HIV-negative SLK recipients (matched cohort)"
+  )
+
+gt::gtsave(tab1, "matched_table_df_full.png")
+
+```
+Making condensed table for poster
+```{r condensed table}
+
+# --- helper recoders ---
+recode_sex_FM <- function(x) {
+  x <- as.character(x)
+  dplyr::recode(x,
+    "F" = "Female",
+    "M" = "Male",
+    .default = x
+  )
+}
+
+recode_YNU_to_words <- function(x) {
+  x <- as.character(x)
+  # combine U + Unknown first
+  x <- dplyr::recode(x, "Unknown" = "U", .default = x)
+  dplyr::recode(x,
+    "Y" = "Yes",
+    "N" = "No",
+    "U" = "Unknown",
+    .default = x
+  )
+}
+
+
+# SRTR-style donor race codes seen in your table:
+collapse_donor_race <- function(x) {
+  x <- as.character(x)
+  case_when(
+    is.na(x) ~ "Missing",
+    x %in% c("8", "White", "WHITE") ~ "White",
+    x %in% c("16", "Black or African American", "BLACK") ~ "Black",
+    x %in% c("2000", "Hispanic/Latino", "HISPANIC") ~ "Hispanic/Latino",
+    # everything else (Asian, AIAN, NHPI, etc.)
+    TRUE ~ "Other"
+  )
+}
+
+matched_df <- matched_df %>%
+  mutate(
+    # Sex labels
+    DON_GENDER = recode_sex_FM(DON_GENDER),
+    CAN_GENDER = recode_sex_FM(CAN_GENDER),
+
+    # Donor race collapsed to match recipient race buckets
+    DON_RACE_collapsed = collapse_donor_race(DON_RACE),
+  ) %>%
+  mutate(
+    # nice ordering for tables
+    DON_GENDER = factor(DON_GENDER, levels = c("Female", "Male")),
+    CAN_GENDER = factor(CAN_GENDER, levels = c("Female", "Male")),
+
+    DON_RACE_collapsed = factor(DON_RACE_collapsed,
+                                levels = c("White", "Black", "Hispanic/Latino", "Other", "Missing"))
+  ) %>%
+  set_variable_labels(
+    DON_GENDER = "Donor sex",
+    DON_RACE_collapsed = "Donor race",
+    DON_ANTI_HIV_recode = "Donor anti-HIV antibody",
+
+    CAN_GENDER = "Recipient sex",
+    CAN_RACE_collapsed = "Recipient race",
+
+    REC_HBV_ANTIBODY_COMB = "HBV core antibody",
+    REC_HBV_SURF_ANTIGEN_COMB = "HBV surface antigen",
+    REC_HCV_STAT_COMB = "HCV serology",
+    REC_CMV_COMBINED = "CMV serology"
+  )
+
+
+matched_df <- matched_df %>%
+  mutate(
+    # ---- serologies: Unknown -> NA ----
+    REC_HBV_ANTIBODY_COMB     = na_if(REC_HBV_ANTIBODY_COMB, "Unknown"),
+    REC_HBV_SURF_ANTIGEN_COMB = na_if(REC_HBV_SURF_ANTIGEN_COMB, "Unknown"),
+    REC_HCV_STAT_COMB         = na_if(REC_HCV_STAT_COMB, "Unknown"),
+    REC_CMV_COMBINED          = na_if(REC_CMV_COMBINED, "Unknown"),
+
+    # ---- donor anti-HIV: Unknown -> NA ----
+    DON_ANTI_HIV_recode = na_if(DON_ANTI_HIV_recode, "Unknown"),
+
+    # ---- drop unused factor levels ----
+    across(where(is.factor), fct_drop)
+  )
+
+
+matched_df <- matched_df %>%
+  mutate(
+    DON_RACE_collapsed = case_when(
+      DON_RACE %in% c("8", "White") ~ "White",
+      DON_RACE %in% c("16", "Black or African American") ~ "Black",
+      DON_RACE %in% c("2000", "Hispanic/Latino") ~ "Hispanic/Latino",
+      is.na(DON_RACE) ~ NA_character_,
+      TRUE ~ "Other"
+    ),
+    DON_RACE_collapsed = factor(
+      DON_RACE_collapsed,
+      levels = c("White", "Black", "Hispanic/Latino", "Other")
+    )
+  )
+
+
+short_var_list<-c("DON_AGE",
+                  "DON_GENDER",
+                  "CAN_BMI_clean",
+                  "REC_AGE_YEARS",
+                  "CAN_GENDER",
+                  "CAN_RACE_collapsed",
+                  "TRANSPLANT_REASON_LI",
+                  "TRANSPLANT_REASON_KI_COLLAPSED",
+                  "REC_HBV_SURF_ANTIGEN_COMB",
+                  "REC_HCV_STAT_COMB",
+                  "REC_CMV_COMBINED",
+                  "MELD_NUM_Last"
+)
+
+
+
+#condensed table
+tbl_dat2 <- matched_df %>%
+  dplyr::select(
+    HIV_POSITIVE,
+    all_of(short_var_list)
+  )
+
+# "self-healing" labels: only keep labels for vars that exist in tbl_dat
+label_list_ok <- label_list[names(label_list) %in% names(tbl_dat)]
+
+
+tab2 <-
+  tbl_dat2 %>%
+  gtsummary::tbl_summary(
+    by = HIV_POSITIVE,
+    missing = "ifany",
+    statistic = list(
+      gtsummary::all_continuous() ~ "{median} ({p25}, {p75})",
+      gtsummary::all_categorical() ~ "{n} ({p}%)"
+    ),
+    label = label_list_ok
+  ) %>%
+  gtsummary::add_p(
+    test = gtsummary::all_categorical() ~ "fisher.test",
+    test.args = gtsummary::all_categorical() ~ list(simulate.p.value = TRUE)
+  ) %>%
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "Characteristics of HIV-positive and HIV-negative SLK recipients (matched cohort)"
+  )
+
+gt::gtsave(tab2, "matched_table_condensed_2.png")
+```
+
+
+Cox regression for overall mortality, separated by DAA era
+```{r Primary Outcome Cox Regression}
+
+# If weights exist and are all 1 (your case), you can ignore them.
+# But we'll code it safely to auto-handle either situation:
+wts <- if ("weights" %in% names(matched_df)) matched_df$weights else NULL
+
+matched_df$ERA <- factor(matched_df$ERA, levels = c("Pre-DAA", "Post-DAA"))
+
+
+#cox models
+cox_main <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+  data    = matched_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+summary(cox_main)
+
+# #adjusted for DAA era
+# cox_main_effects <- coxph(
+#   Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE + ERA,
+#   data    = matched_df,
+#   robust  = TRUE,
+#   cluster = subclass
+# )
+# summary(cox_main_effects)
+# 
+#formally test if ERA is effect modifier
+cox_int <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,
+  data    = matched_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+summary(cox_int)
+
+
+#split analysis pre and post DAA era
+
+# Split datasets
+pre_df  <- matched_df %>% filter(ERA == "Pre-DAA")
+post_df <- matched_df %>% filter(ERA == "Post-DAA")
+
+# Optional: check counts/events
+with(pre_df,  table(HIV_POSITIVE))
+with(post_df, table(HIV_POSITIVE))
+sum(pre_df$REC_DEATH_BINARY == 1, na.rm = TRUE)
+sum(post_df$REC_DEATH_BINARY == 1, na.rm = TRUE)
+
+# 1) Unadjusted (HIV only)
+cox_pre_unadj <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+  data    = pre_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+
+cox_post_unadj <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+  data    = post_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+
+summary(cox_pre_unadj)
+summary(cox_post_unadj)
+
+#make these into tables
+
+#make these into tables
+# helper to make a tbl_regression with consistent formatting
+mk_tbl <- function(fit) {
+  tbl_regression(
+    fit,
+    exponentiate = TRUE
+  ) %>%
+    bold_labels() %>%
+    italicize_levels()
+}
+
+t_unadj <- mk_tbl(cox_main)
+t_era   <- mk_tbl(cox_main_effects)
+t_int   <- mk_tbl(cox_int)
+t_pre   <- mk_tbl(cox_pre_unadj)
+t_post  <- mk_tbl(cox_post_unadj)
+
+
+#helper function to make clean labels
+clean_labels <- function(tbl) {
+  tbl %>%
+    modify_table_body(~ .x %>%
+      mutate(
+        label = case_when(
+          label == "HIV_POSITIVE" ~ "HIV-positive (vs HIV-negative)",
+          label == "ERAPost-DAA" ~ "Post-DAA era (vs Pre-DAA)",
+          label == "HIV_POSITIVE:ERAPost-DAA" ~ "HIV × Post-DAA interaction",
+          TRUE ~ label
+        )
+      )
+    )
+}
+
+t_unadj <- clean_labels(t_unadj)
+t_era   <- clean_labels(t_era)
+t_int   <- clean_labels(t_int)
+t_pre   <- clean_labels(t_pre)
+t_post  <- clean_labels(t_post)
+
+
+tbl_mortality <- tbl_merge(
+  tbls = list(t_unadj, t_era, t_int, t_pre, t_post),
+  tab_spanner = c(
+    "**Unadjusted**",
+    "**Adjusted for ERA**",
+    "**HIV × ERA**",
+    "**Pre-DAA only**",
+    "**Post-DAA only**"
+  )
+) %>%
+  modify_caption("**Table 1. Cox proportional hazards models for overall mortality**")
+
+tbl_mortality
+
+
+
+tbl_mortality_long <- tbl_stack(
+  tbls = list(t_unadj, t_era, t_int, t_pre, t_post),
+  group_header = c(
+    "Unadjusted",
+    "Adjusted for ERA",
+    "HIV × ERA interaction",
+    "Pre-DAA only",
+    "Post-DAA only"
+  )
+) %>%
+  modify_caption("**Table 1. Cox proportional hazards models for overall mortality**")
+
+tbl_mortality_long
+
+
+
+era_mixing <- matched_df %>%
+  dplyr::group_by(subclass) %>%
+  dplyr::summarise(
+    n = dplyr::n(),
+    eras = dplyr::n_distinct(ERA),
+    mixed_era = (eras > 1)
+  )
+
+table(era_mixing$mixed_era)
+mean(era_mixing$mixed_era)
+
+
+
+matched_df %>%
+  dplyr::mutate(TX_DATE = as.Date(REC_TX_DT)) %>%
+  dplyr::group_by(subclass) %>%
+  dplyr::summarise(
+    min_date = min(TX_DATE, na.rm = TRUE),
+    max_date = max(TX_DATE, na.rm = TRUE),
+    span_days = as.numeric(max_date - min_date),
+    eras = dplyr::n_distinct(ERA),
+    mixed_era = eras > 1
+  ) %>%
+  dplyr::summarise(
+    max_span = max(span_days, na.rm = TRUE),
+    pct_mixed = mean(mixed_era, na.rm = TRUE)
+  )
+```
+
+Make KM curves -- overall, pre and post DAA
+```{r Primary Outcome KM Curves}
+# Ensure HIV is a factor with nice labels
+
+matched_df <- matched_df %>%
+  mutate(
+    HIV_LABEL = factor(
+      HIV_POSITIVE,
+      levels = c(0, 1),
+      labels = c("HIV Negative", "HIV Positive")
+    )
+  )
+
+# Make ERA a factor with consistent order
+matched_df$ERA <- factor(matched_df$ERA, levels = c("Pre-DAA", "Post-DAA"))
+
+#Overall KM curve with risk table 
+km_all <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)
+
+p_all <- ggsurvplot(
+  km_all,
+  data = matched_df,
+  risk.table = TRUE,
+  risk.table.height = 0.28,
+  pval = TRUE,
+  conf.int = TRUE,
+  xlab = "Years post-transplant",
+  ylab = "Survival probability",
+  title = "Overall survival after SLK (HIV+ vs HIV-)",
+  legend.title = "",
+  legend.labs = c("HIV Negative", "HIV Positive"),
+  break.time.by = 2
+)
+
+print(p_all)
+
+# Save (curve + risk table together)
+g_all <- arrange_ggsurvplots(list(p_all), print = FALSE)
+
+ggsave(
+  filename = "KM_overall.png",
+  plot     = g_all,
+  width    = 15,
+  height   = 7,
+  dpi      = 300
+)
+
+#Pre DAA KM curve with risk table
+pre_df <- matched_df %>% filter(ERA == "Pre-DAA")
+
+km_pre <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)
+
+p_pre <- ggsurvplot(
+  km_pre,
+  data = pre_df,
+  risk.table = TRUE,
+  risk.table.height = 0.28,
+  pval = TRUE,
+  conf.int = TRUE,
+  xlab = "Years post-transplant",
+  ylab = "Survival probability",
+  title = "Survival after SLK (Pre-DAA era, 2005-2013)",
+  legend.title = "",
+  legend.labs = c("HIV Negative", "HIV Positive"),
+  break.time.by = 2
+)
+
+print(p_pre)
+
+# Save (curve + risk table together)
+g_all_pre <- arrange_ggsurvplots(list(p_pre), print = FALSE)
+
+ggsave(
+  filename = "KM_pre_DAA.png",
+  plot     = g_all_pre,
+  width    = 15,
+  height   = 7,
+  dpi      = 300
+)
+
+
+#Post DAA KM Plot
+post_df <- matched_df %>% filter(ERA == "Post-DAA")
+
+km_post <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)
+
+p_post <- ggsurvplot(
+  km_post,
+  data = post_df,
+  risk.table = TRUE,
+  risk.table.height = 0.28,
+  pval = TRUE,
+  conf.int = TRUE,
+  xlab = "Years post-transplant",
+  ylab = "Survival probability",
+  title = "Survival after SLK (Post-DAA era, 2014-2023)",
+  legend.title = "",
+  legend.labs = c("HIV Negative", "HIV Positive"),
+  break.time.by = 2
+)
+
+print(p_post)
+
+# Save (curve + risk table together)
+g_all_post <- arrange_ggsurvplots(list(p_post), print = FALSE)
+
+ggsave(
+  filename = "KM_post_DAA.png",
+  plot     = g_all_post,
+  width    = 15,
+  height   = 7,
+  dpi      = 300
+)
+
+#Log-Rank tests
+lr_all  <- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)
+lr_pre  <- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)
+lr_post <- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)
+
+lr_all
+lr_pre
+lr_post
+
+#median survival tables 
+summary(km_all)$table
+summary(km_pre)$table
+summary(km_post)$table
+
+#median survival tables
+
+# Overall
+km_all_tbl <- as.data.frame(summary(km_all)$table) %>%
+  tibble::rownames_to_column("Group") %>%
+  dplyr::mutate(
+    Era = "Overall",
+    HIV = if_else(grepl("=1", Group), "HIV-positive", "HIV-negative")
+  )
+
+# Pre-DAA
+km_pre_tbl <- as.data.frame(summary(km_pre)$table) %>%
+  tibble::rownames_to_column("Group") %>%
+  dplyr::mutate(
+    Era = "Pre-DAA",
+    HIV = if_else(grepl("=1", Group), "HIV-positive", "HIV-negative")
+  )
+
+# Post-DAA
+km_post_tbl <- as.data.frame(summary(km_post)$table) %>%
+  tibble::rownames_to_column("Group") %>%
+  dplyr::mutate(
+    Era = "Post-DAA",
+    HIV = if_else(grepl("=1", Group), "HIV-positive", "HIV-negative")
+  )
+
+# Combine + clean
+km_median_tbl <- dplyr::bind_rows(
+  km_all_tbl,
+  km_pre_tbl,
+  km_post_tbl
+) %>%
+  dplyr::mutate(
+    median_fmt = ifelse(
+      is.na(median),
+      "Not reached",
+      sprintf("%.2f", median)
+    ),
+    CI = ifelse(
+      is.na(median),
+      "—",
+      paste0(sprintf("%.2f", `0.95LCL`), ", ", sprintf("%.2f", `0.95UCL`))
+    )
+  ) %>%
+  dplyr::select(
+    Era,
+    HIV,
+    N = records,
+    Events = events,
+    `Median survival (years)` = median_fmt,
+    `95% CI` = CI
+  )
+
+km_median_tbl
+
+
+library(dplyr)
+library(tibble)
+
+km_all_tbl <- as.data.frame(summary(km_all)$table) %>%
+  tibble::rownames_to_column("Group") %>%
+  dplyr::mutate(
+    Era = "Overall",
+    HIV = if_else(grepl("=1", Group), "HIV-positive", "HIV-negative")
+  )
+
+km_pre_tbl <- as.data.frame(summary(km_pre)$table) %>%
+  tibble::rownames_to_column("Group") %>%
+  dplyr::mutate(
+    Era = "Pre-DAA",
+    HIV = if_else(grepl("=1", Group), "HIV-positive", "HIV-negative")
+  )
+
+km_post_tbl <- as.data.frame(summary(km_post)$table) %>%
+  tibble::rownames_to_column("Group") %>%
+  dplyr::mutate(
+    Era = "Post-DAA",
+    HIV = if_else(grepl("=1", Group), "HIV-positive", "HIV-negative")
+  )
+
+km_median_tbl <- dplyr::bind_rows(km_all_tbl, km_pre_tbl, km_post_tbl) %>%
+  dplyr::mutate(
+    median_fmt = ifelse(is.na(median), "Not reached", sprintf("%.2f", median)),
+    CI = ifelse(
+      is.na(median),
+      "—",
+      paste0(sprintf("%.2f", `0.95LCL`), ", ", sprintf("%.2f", `0.95UCL`))
+    )
+  ) %>%
+  dplyr::select(
+    Era,
+    HIV,
+    N = records,
+    Events = events,
+    `Median survival (years)` = median_fmt,
+    `95% CI` = CI
+  )
+
+# Print as a clean, copyable text table
+print(knitr::kable(km_median_tbl, format = "simple"))
+
+
+
+```
+
+
+Secondary Outcome Analysis: Graft Failure for Liver and Kidney 
+```{r Graft Failure}
+#Redefining the censor date to include death as a censor (not just last f/u)
+matched_df <- matched_df %>%
+  mutate(
+    # Ensure Date class
+    REC_TX_DT_LI = as.Date(REC_TX_DT_LI),
+    REC_TX_DT_KI = as.Date(REC_TX_DT_KI),
+    TFL_LAFUDATE_LI = as.Date(TFL_LAFUDATE_LI),
+    TFL_LAFUDATE_KI = as.Date(TFL_LAFUDATE_KI),
+    TFL_GRAFT_DT_LI = as.Date(TFL_GRAFT_DT_LI),
+    TFL_GRAFT_DT_KI = as.Date(TFL_GRAFT_DT_KI),
+    REC_DEATH_DT_COMPOSITE = as.Date(REC_DEATH_DT_COMPOSITE),
+
+    # LIVER: death-censored endpoint
+    # censor date = earliest of (graft failure, death, last follow-up)
+    LI_CENSOR_DT = pmin(TFL_GRAFT_DT_LI, REC_DEATH_DT_COMPOSITE, TFL_LAFUDATE_LI, na.rm = TRUE),
+    LI_EVENT = ifelse(!is.na(TFL_GRAFT_DT_LI) & TFL_GRAFT_DT_LI <= LI_CENSOR_DT, 1, 0),
+    LI_TIME_YRS = as.numeric(difftime(LI_CENSOR_DT, REC_TX_DT_LI, units = "days")) / 365.25,
+
+    # KIDNEY: death-censored endpoint
+    KI_CENSOR_DT = pmin(TFL_GRAFT_DT_KI, REC_DEATH_DT_COMPOSITE, TFL_LAFUDATE_KI, na.rm = TRUE),
+    KI_EVENT = ifelse(!is.na(TFL_GRAFT_DT_KI) & TFL_GRAFT_DT_KI <= KI_CENSOR_DT, 1, 0),
+    KI_TIME_YRS = as.numeric(difftime(KI_CENSOR_DT, REC_TX_DT_KI, units = "days")) / 365.25
+  )
+
+#Kidney graft failure
+cox_kidney <- coxph(
+  Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE,
+  data    = matched_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+summary(cox_kidney)
+cox.zph(cox_kidney)
+
+
+#Liver graft failure
+cox_liver <- coxph(
+  Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE,
+  data    = matched_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+summary(cox_liver)
+cox.zph(cox_liver)
+
+# #Kidney + Era
+# cox_kidney_era <- coxph(
+#   Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE + ERA,
+#   data    = matched_df,
+#   robust  = TRUE,
+#   cluster = subclass
+# )
+# summary(cox_kidney_era)
+# 
+#Kidney * Era (interaction model)
+cox_kidney_int <- coxph(
+  Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE * ERA,
+  data    = matched_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+summary(cox_kidney_int)
+# 
+# #Liver + Era model
+# cox_liver_era <- coxph(
+#   Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE + ERA,
+#   data    = matched_df,
+#   robust  = TRUE,
+#   cluster = subclass
+# )
+# summary(cox_liver_era)
+# 
+#Liver*Era interaction model
+cox_liver_int <- coxph(
+  Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE * ERA,
+  data    = matched_df,
+  robust  = TRUE,
+  cluster = subclass
+)
+summary(cox_liver_int)
+
+#analysis stratified by era
+pre_df  <- matched_df %>% filter(ERA == "Pre-DAA")
+post_df <- matched_df %>% filter(ERA == "Post-DAA")
+
+cox_kidney_pre <- coxph(Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE,
+                        data = pre_df, robust = TRUE, cluster = subclass)
+cox_kidney_post <- coxph(Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE,
+                         data = post_df, robust = TRUE, cluster = subclass)
+
+cox_liver_pre <- coxph(Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE,
+                       data = pre_df, robust = TRUE, cluster = subclass)
+cox_liver_post <- coxph(Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE,
+                        data = post_df, robust = TRUE, cluster = subclass)
+
+summary(cox_kidney_pre); summary(cox_kidney_post)
+summary(cox_liver_pre);  summary(cox_liver_post)
+
+
+
+#make tables
+# Kidney graft failure events
+with(matched_df, table(KI_EVENT, useNA = "ifany"))
+# Liver graft failure events
+with(matched_df, table(LI_EVENT, useNA = "ifany"))
+
+# By era (optional)
+with(matched_df, table(HIV_POSITIVE, KI_EVENT))
+with(matched_df, table(HIV_POSITIVE, LI_EVENT))
+
+#make a "make table" function
+mk_tbl <- function(fit) {
+  tbl_regression(
+    fit,
+    exponentiate = TRUE
+  ) %>%
+    bold_labels() %>%
+    italicize_levels()
+}
+
+#make clean labels function
+clean_labels <- function(tbl) {
+  tbl %>%
+    modify_table_body(~ .x %>%
+      mutate(
+        label = case_when(
+          label == "HIV_POSITIVE" ~ "HIV-positive (vs HIV-negative)",
+          label == "ERAPost-DAA" ~ "Post-DAA era (vs Pre-DAA)",
+          label == "HIV_POSITIVE:ERAPost-DAA" ~ "HIV × Post-DAA interaction",
+          TRUE ~ label
+        )
+      )
+    )
+}
+
+#make kidney failure tables
+#clean labels
+t_kid_unadj <- clean_labels(mk_tbl(cox_kidney))
+t_kid_era   <- clean_labels(mk_tbl(cox_kidney_era))
+t_kid_int   <- clean_labels(mk_tbl(cox_kidney_int))
+t_kid_pre   <- clean_labels(mk_tbl(cox_kidney_pre))
+t_kid_post  <- clean_labels(mk_tbl(cox_kidney_post))
+
+#create table
+tbl_kidney_gf <-
+  tbl_merge(
+    tbls = list(
+      t_kid_unadj,
+      t_kid_era,
+      t_kid_int,
+      t_kid_pre,
+      t_kid_post
+    ),
+    tab_spanner = c(
+      "**Unadjusted**",
+      "**Adjusted for ERA**",
+      "**HIV × ERA**",
+      "**Pre-DAA only**",
+      "**Post-DAA only**"
+    )
+  ) %>%
+  modify_caption("**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**") %>%
+  modify_footnote(
+    everything() ~ "Robust standard errors clustered by matched set (subclass)."
+  )
+
+tbl_kidney_gf
+
+#change table orientation
+tbl_kidney_gf_long <- tbl_stack(
+  tbls = list(t_kid_unadj, t_kid_era, t_kid_int, t_kid_pre, t_kid_post),
+  group_header = c(
+    "Unadjusted",
+    "Adjusted for ERA",
+    "HIV × ERA interaction",
+    "Pre-DAA only",
+    "Post-DAA only"
+  )
+) %>%
+  modify_caption("**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**") %>%
+  modify_footnote(everything() ~ "Robust standard errors clustered by matched set (subclass).")
+
+tbl_kidney_gf_long
+
+
+#make liver tables
+t_liv_unadj <- clean_labels(mk_tbl(cox_liver))
+t_liv_era   <- clean_labels(mk_tbl(cox_liver_era))
+t_liv_pre   <- clean_labels(mk_tbl(cox_liver_pre))
+t_liv_post  <- clean_labels(mk_tbl(cox_liver_post))
+
+tbl_liver_gf <-
+  tbl_merge(
+    tbls = list(
+      t_liv_unadj,
+      t_liv_era,
+      t_liv_pre,
+      t_liv_post
+    ),
+    tab_spanner = c(
+      "**Unadjusted**",
+      "**Adjusted for ERA**",
+      "**Pre-DAA only**",
+      "**Post-DAA only**"
+    )
+  ) %>%
+  modify_caption("**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**") %>%
+  modify_footnote(
+    everything() ~
+      "Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events."
+  )
+
+tbl_liver_gf
+
+#change table orientation
+tbl_liver_gf_long <- tbl_stack(
+  tbls = list(t_liv_unadj, t_liv_era, t_liv_pre, t_liv_post),
+  group_header = c(
+    "Unadjusted",
+    "Adjusted for ERA",
+    "Pre-DAA only",
+    "Post-DAA only"
+  )
+) %>%
+  modify_caption("**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**") %>%
+  modify_footnote(
+    everything() ~ "Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events."
+  )
+
+tbl_liver_gf_long
+
+```
+
+table for poster
+```{r making tables for poster}
+library(gtsummary)
+library(survival)
+library(gt)
+
+# -----------------------------
+# 0) Helper functions
+# -----------------------------
+mk_tbl <- function(fit) {
+  tbl_regression(
+    fit,
+    exponentiate = TRUE,
+    estimate_fun = ~ style_sigfig(.x, digits = 2),   # keeps model output tidy
+    pvalue_fun   = ~ style_pvalue(.x, digits = 2)
+  ) %>%
+    bold_labels()
+}
+
+clean_labels <- function(tbl) {
+  tbl %>%
+    modify_table_body(~ .x %>%
+      mutate(
+        label = case_when(
+          label == "HIV_POSITIVE" ~ "HIV-positive (vs HIV-negative)",
+          TRUE ~ label
+        )
+      )
+    )
+}
+
+# Create HR (95% CI) with 2 decimals and keep p-value
+shrink_one <- function(tbl) {
+  tbl %>%
+    modify_table_body(~ .x %>%
+      # keep only the HIV row
+      filter(term == "HIV_POSITIVE") %>%
+      mutate(
+        est_num  = suppressWarnings(as.numeric(estimate)),
+        low_num  = suppressWarnings(as.numeric(conf.low)),
+        high_num = suppressWarnings(as.numeric(conf.high)),
+
+        hr_ci = case_when(
+          !is.na(est_num) ~ sprintf("%.2f (%.2f–%.2f)", est_num, low_num, high_num),
+          TRUE ~ NA_character_
+        ),
+
+        p_fmt = case_when(
+          is.na(p.value) ~ NA_character_,
+          p.value < 0.01 ~ "<0.01",
+          TRUE ~ sprintf("%.2f", p.value)
+        )
+      ) %>%
+      select(label, hr_ci, p_fmt)
+    ) %>%
+    modify_header(
+      hr_ci ~ "**HR (95% CI)**",
+      p_fmt ~ "**p**"
+    )
+}
+
+
+# Mark Post-DAA liver graft failure as not estimable (NE)
+mark_ne <- function(tbl) {
+  tbl %>%
+    modify_table_body(~ .x %>%
+      mutate(
+        hr_ci = "NE",
+        p_fmt = NA_character_
+      )
+    )
+}
+
+# -----------------------------
+# 1) Build SMALL tables for each model (overall / pre / post) per outcome
+# -----------------------------
+
+# ---- Mortality ----
+mort_overall <- clean_labels(mk_tbl(cox_main))       %>% shrink_one()
+mort_pre     <- clean_labels(mk_tbl(cox_pre_unadj))  %>% shrink_one()
+mort_post    <- clean_labels(mk_tbl(cox_post_unadj)) %>% shrink_one()
+
+tbl_mort_block <- tbl_merge(
+  tbls = list(mort_overall, mort_pre, mort_post),
+  tab_spanner = c("**Overall**", "**Pre-DAA**", "**Post-DAA**")
+)
+
+# ---- Kidney graft failure ----
+kid_overall <- clean_labels(mk_tbl(cox_kidney))      %>% shrink_one()
+kid_pre     <- clean_labels(mk_tbl(cox_kidney_pre))  %>% shrink_one()
+kid_post    <- clean_labels(mk_tbl(cox_kidney_post)) %>% shrink_one()
+
+tbl_kid_block <- tbl_merge(
+  tbls = list(kid_overall, kid_pre, kid_post),
+  tab_spanner = c("**Overall**", "**Pre-DAA**", "**Post-DAA**")
+)
+
+# ---- Liver graft failure ----
+liv_overall <- clean_labels(mk_tbl(cox_liver))      %>% shrink_one()
+liv_pre     <- clean_labels(mk_tbl(cox_liver_pre))  %>% shrink_one()
+
+# Post-DAA liver: quasi separation -> NE
+liv_post <- clean_labels(mk_tbl(cox_liver_post)) %>%
+  shrink_one() %>%
+  mark_ne()
+
+tbl_liv_block <- tbl_merge(
+  tbls = list(liv_overall, liv_pre, liv_post),
+  tab_spanner = c("**Overall**", "**Pre-DAA**", "**Post-DAA**")
+)
+
+# -----------------------------
+# 2) Stack into the MEGA table + caption/footnote
+# -----------------------------
+tbl_mega <- tbl_stack(
+  tbls = list(tbl_mort_block, tbl_kid_block, tbl_liv_block),
+  group_header = c(
+    "Overall mortality",
+    "Kidney graft failure (28 events; 6 HIV+)",
+    "Liver graft failure (16 events; 2 HIV+)"
+  )
+) %>%
+  modify_caption("**Cox regression results (matched cohort), overall and stratified by DAA era**") %>%
+  modify_footnote(
+    everything() ~ paste(
+      "Robust SEs clustered by matched set (subclass).",
+      "Kidney graft failure: 28 total events (6 HIV+).",
+      "Liver graft failure: 16 total events (2 HIV+).",
+      "Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation)."
+    )
+  )
+
+tbl_mega
+
+# -----------------------------
+# 3) Save as PNG for poster
+# -----------------------------
+gt_tbl <- tbl_mega %>%
+  as_gt() %>%
+  tab_options(
+    table.width = pct(100),
+    table.font.size = 11,
+    data_row.padding = px(3)
+  )
+
+gtsave(gt_tbl, filename = "cox_mega_table_poster.png")
+
+
+
+
+library(dplyr)
+library(survival)
+library(gt)
+
+# -----------------------------
+# Helper: extract robust HR/CI/p for HIV_POSITIVE
+# Uses vcov(fit) -> robust sandwich when you fit with robust=TRUE + cluster=subclass
+# -----------------------------
+extract_hiv_row <- function(fit, label, ne = FALSE) {
+  if (ne) {
+    return(tibble(
+      Outcome = label,
+      `HR (95% CI)` = "NE",
+      p = ""
+    ))
+  }
+
+  term <- "HIV_POSITIVE"
+  b <- unname(coef(fit)[term])
+
+  # robust SE from vcov (should be robust due to robust=TRUE + cluster=subclass)
+  V <- vcov(fit)
+  se <- sqrt(unname(V[term, term]))
+
+  z  <- b / se
+  p  <- 2 * pnorm(-abs(z))
+
+  hr <- exp(b)
+  lo <- exp(b - 1.96 * se)
+  hi <- exp(b + 1.96 * se)
+
+  p_fmt <- ifelse(is.na(p), "",
+                  ifelse(p < 0.01, "<0.01", sprintf("%.2f", p)))
+
+  tibble(
+    Outcome = label,
+    `HR (95% CI)` = sprintf("%.2f (%.2f–%.2f)", hr, lo, hi),
+    p = p_fmt
+  )
+}
+
+# -----------------------------
+# Build the mega results table as a dataframe
+# Assumes you already created these Cox fits:
+# cox_main, cox_pre_unadj, cox_post_unadj
+# cox_kidney, cox_kidney_pre, cox_kidney_post
+# cox_liver, cox_liver_pre, cox_liver_post
+# -----------------------------
+
+mega_df <- bind_rows(
+  # Mortality block (overall/pre/post)
+  extract_hiv_row(cox_main,      "Overall mortality — Overall") %>% mutate(ERA = "Overall"),
+  extract_hiv_row(cox_pre_unadj, "Overall mortality — Pre-DAA") %>% mutate(ERA = "Pre-DAA"),
+  extract_hiv_row(cox_post_unadj,"Overall mortality — Post-DAA")%>% mutate(ERA = "Post-DAA"),
+
+  # Kidney graft failure block with event counts in label
+  extract_hiv_row(cox_kidney,      "Kidney graft failure (28 events; 6 HIV+) — Overall") %>% mutate(ERA = "Overall"),
+  extract_hiv_row(cox_kidney_pre,  "Kidney graft failure (28 events; 6 HIV+) — Pre-DAA") %>% mutate(ERA = "Pre-DAA"),
+  extract_hiv_row(cox_kidney_post, "Kidney graft failure (28 events; 6 HIV+) — Post-DAA")%>% mutate(ERA = "Post-DAA"),
+
+  # Liver graft failure block with Post-DAA marked NE
+  extract_hiv_row(cox_liver,     "Liver graft failure (16 events; 2 HIV+) — Overall") %>% mutate(ERA = "Overall"),
+  extract_hiv_row(cox_liver_pre, "Liver graft failure (16 events; 2 HIV+) — Pre-DAA") %>% mutate(ERA = "Pre-DAA"),
+  extract_hiv_row(cox_liver_post,"Liver graft failure (16 events; 2 HIV+) — Post-DAA", ne = TRUE) %>% mutate(ERA = "Post-DAA")
+) %>%
+  # Keep just the outcome group name (without the era suffix) and make a wide table
+  mutate(
+    OutcomeGroup = sub(" — (Overall|Pre-DAA|Post-DAA)$", "", Outcome)
+  ) %>%
+  select(OutcomeGroup, ERA, `HR (95% CI)`, p) %>%
+  tidyr::pivot_wider(
+    names_from = ERA,
+    values_from = c(`HR (95% CI)`, p),
+    names_glue = "{.value} ({ERA})"
+  ) %>%
+  rename(Outcome = OutcomeGroup)
+
+# -----------------------------
+# Render with gt and save
+# -----------------------------
+gt_tbl <- mega_df %>%
+  gt(rowname_col = "Outcome") %>%
+  tab_header(
+    title = md("**Cox regression results (matched cohort), overall and stratified by DAA era**"),
+    subtitle = md("HIV-positive vs HIV-negative; robust SEs clustered by matched set (subclass)")
+  ) %>%
+  tab_source_note(
+    md("Kidney graft failure: 28 total events (6 HIV+). Liver graft failure: 16 total events (2 HIV+). Post-DAA liver graft failure: **NE** = not estimable due to sparse/zero events (quasi separation).")
+  ) %>%
+  tab_options(
+    table.width = pct(80),
+    table.font.size = 11,
+    data_row.padding = px(3)
+  )
+
+gt_tbl
+
+gtsave(gt_tbl, filename = "cox_mega_table_poster.png")
+
+#adding interaction term to table
+cox_mort_int <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,
+  data = matched_df,
+  robust = TRUE,
+  cluster = subclass
+)
+
+cox_kidney_int <- coxph(
+  Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE * ERA,
+  data = matched_df,
+  robust = TRUE,
+  cluster = subclass
+)
+
+cox_liver_int <- coxph(
+  Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE * ERA,
+  data = matched_df,
+  robust = TRUE,
+  cluster = subclass
+)
+
+library(dplyr)
+library(survival)
+
+fmt_p <- function(p) {
+  if (is.na(p)) return(NA_character_)
+  if (p < 0.01) return("<0.01")
+  sprintf("%.2f", p)
+}
+
+fmt_hrci <- function(hr, lo, hi) {
+  sprintf("%.2f (%.2f–%.2f)", hr, lo, hi)
+}
+
+extract_interaction <- function(fit, outcome_label,
+                                term = "HIV_POSITIVE:ERAPost-DAA") {
+
+  # ---- FORCE NE for liver graft failure (sparse post-DAA events) ----
+  if (outcome_label == "Liver graft failure (16 events; 2 HIV+)") {
+    return(tibble(
+      Outcome = outcome_label,
+      `Interaction HR (95% CI)` = "NE",
+      `Interaction p` = NA_character_
+    ))
+  }
+
+  # ---- If interaction term not present ----
+  if (!term %in% names(coef(fit))) {
+    return(tibble(
+      Outcome = outcome_label,
+      `Interaction HR (95% CI)` = NA_character_,
+      `Interaction p` = NA_character_
+    ))
+  }
+
+  b <- unname(coef(fit)[term])
+
+  V <- tryCatch(vcov(fit), error = function(e) NULL)
+  if (is.null(V) || !all(term %in% rownames(V))) {
+    return(tibble(
+      Outcome = outcome_label,
+      `Interaction HR (95% CI)` = NA_character_,
+      `Interaction p` = NA_character_
+    ))
+  }
+
+  se <- sqrt(unname(V[term, term]))
+
+  # ---- Guard against infinite / zero / NA SE ----
+  if (!is.finite(se) || is.na(se) || se <= 0) {
+    return(tibble(
+      Outcome = outcome_label,
+      `Interaction HR (95% CI)` = NA_character_,
+      `Interaction p` = NA_character_
+    ))
+  }
+
+  # ---- Compute HR, CI, p ----
+  hr <- exp(b)
+  lo <- exp(b - 1.96 * se)
+  hi <- exp(b + 1.96 * se)
+  p  <- 2 * pnorm(-abs(b / se))
+
+  tibble(
+    Outcome = outcome_label,
+    `Interaction HR (95% CI)` = sprintf("%.2f (%.2f–%.2f)", hr, lo, hi),
+    `Interaction p` = ifelse(p < 0.01, "<0.01", sprintf("%.2f", p))
+  )
+}
+
+
+
+interaction_df <- bind_rows(
+  extract_interaction(cox_mort_int,   "Overall mortality"),
+  extract_interaction(cox_kidney_int, "Kidney graft failure (28 events; 6 HIV+)"),
+  extract_interaction(cox_liver_int,  "Liver graft failure (16 events; 2 HIV+)")
+)
+
+
+mega_df_final <- mega_df %>%
+  left_join(interaction_df, by = "Outcome")
+
+gt_tbl <- mega_df_final %>%
+  gt(rowname_col = "Outcome") %>%
+  tab_header(
+    title = md("**Cox regression results (matched cohort; N=336 total, 56 HIV-positive)**"),
+    subtitle = md("Overall, stratified by DAA era, and HIV × era interaction")
+  ) %>%
+  tab_source_note(
+    md("Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation). Interaction ratio is the ratio of post-DAA to pre-DAA hazard ratios")
+  ) %>%
+  tab_options(
+    table.width = pct(80),
+    table.font.size = 11,
+    data_row.padding = px(3)
+  )
+
+gtsave(gt_tbl, "cox_mega_table_with_interaction.png")
+
+
+```
+
+Secondary Outcome Analysis: Hospital Length of Stay
+```{r LOS Analysis}
+#restrict LOS to patients discharged alive
+los_df <- matched_df %>%
+  filter(!is.na(los_days_inclusive))
+
+# Fit negative binomial
+nb_los <- glm.nb(
+  los_days_inclusive ~ HIV_POSITIVE,
+  data = los_df
+)
+nb_los
+# Cluster-robust SEs by matched set
+cov_clust <- vcovCL(nb_los, cluster = los_df$subclass)
+nb_los_robust <- coeftest(nb_los, vcov = cov_clust)
+
+nb_los_robust
+
+#model adjusting for ERA
+nb_los_era <- glm.nb(
+  los_days_inclusive ~ HIV_POSITIVE + ERA,
+  data = los_df
+)
+
+cov_clust_era <- vcovCL(nb_los_era, cluster = los_df$subclass)
+coeftest(nb_los_era, vcov = cov_clust_era)
+
+#sensitivity analysis: log-linear regression
+lm_los <- lm(
+  log(los_days_inclusive) ~ HIV_POSITIVE + ERA,
+  data = los_df
+)
+
+coeftest(lm_los, vcov = vcovCL(lm_los, cluster = los_df$subclass))
+
+
+
+
+hist(los_df$los_days_inclusive, breaks = 50)
+
+
+#make table for LOS
+extract_robust <- function(fit, cluster, model_label,
+                           exponentiate = TRUE,
+                           keep_terms = NULL) {
+
+  ct <- coeftest(fit, vcov = vcovCL(fit, cluster = cluster))
+
+  df <- tibble(
+    Model    = model_label,
+    term     = rownames(ct),
+    estimate = as.numeric(ct[, 1]),
+    se       = as.numeric(ct[, 2]),
+    p.value  = as.numeric(ct[, ncol(ct)])
+  )
+
+  if (!is.null(keep_terms)) df <- df %>% dplyr::filter(term %in% keep_terms)
+
+  df <- df %>%
+    dplyr::mutate(
+      conf.low  = estimate - 1.96 * se,
+      conf.high = estimate + 1.96 * se
+    )
+
+  if (exponentiate) {
+    df <- df %>%
+      dplyr::mutate(
+        est = exp(estimate),
+        lo  = exp(conf.low),
+        hi  = exp(conf.high),
+        pct = (est - 1) * 100
+      )
+  } else {
+    df <- df %>%
+      dplyr::mutate(
+        est = estimate,
+        lo  = conf.low,
+        hi  = conf.high,
+        pct = NA_real_
+      )
+  }
+
+  df %>%
+    dplyr::mutate(
+      Predictor = dplyr::case_when(
+        term == "HIV_POSITIVE" ~ "HIV-positive (vs HIV-negative)",
+        term == "ERAPost-DAA"  ~ "Post-DAA era (vs Pre-DAA)",
+        term == "(Intercept)" ~ "Intercept",
+        TRUE ~ term
+      ),
+      `Effect (95% CI)` = sprintf("%.2f (%.2f, %.2f)", est, lo, hi),
+      `Approx. % diff`  = ifelse(is.na(pct), NA_character_, sprintf("%+.1f%%", pct)),
+      `p-value` = dplyr::case_when(
+        is.na(p.value) ~ NA_character_,
+        p.value < 0.001 ~ "<0.001",
+        TRUE ~ sprintf("%.3f", p.value)
+      )
+    ) %>%
+    dplyr::select(Model, Predictor, `Effect (95% CI)`, `Approx. % diff`, `p-value`)
+}
+
+# ---- build LONG table ----
+los_long_tbl <- dplyr::bind_rows(
+  extract_robust(
+    nb_los,
+    cluster = los_df$subclass,
+    model_label = "Negative binomial (unadjusted)",
+    exponentiate = TRUE,
+    keep_terms = c("HIV_POSITIVE")
+  ),
+  extract_robust(
+    nb_los_era,
+    cluster = los_df$subclass,
+    model_label = "Negative binomial (+ ERA)",
+    exponentiate = TRUE,
+    keep_terms = c("HIV_POSITIVE", "ERAPost-DAA")
+  ),
+  extract_robust(
+    lm_los,
+    cluster = los_df$subclass,
+    model_label = "Log-linear sensitivity (log LOS, + ERA)",
+    exponentiate = TRUE,
+    keep_terms = c("HIV_POSITIVE", "ERAPost-DAA")
+  )
+)
+
+# ---- render as grouped long table ----
+los_gt <- los_long_tbl %>%
+  gt(groupname_col = "Model") %>%
+  tab_header(title = "Length of hospital stay (discharged alive): regression results") %>%
+  cols_label(
+    Predictor = "Predictor",
+    `Effect (95% CI)` = "Ratio (95% CI)",
+    `Approx. % diff`  = "Approx. % difference",
+    `p-value` = "p-value"
+  ) %>%
+  tab_source_note("Effect estimates are ratios (exp(beta)); robust SEs clustered by matched set (subclass). Outcome: los_days_inclusive.")
+
+los_gt
+
+
+```
+
+
+
+make cox tables
+```{r}
+# =========================
+# Export Cox results (pre/post era + interaction) in a mentor-friendly format
+# =========================
+
+# Packages
+library(survival)
+library(broom)
+library(dplyr)
+library(stringr)
+
+# ---- helper: format one cox model nicely ----
+format_cox <- function(fit, model_name = "Model") {
+  s <- summary(fit)
+  n <- s$n
+  events <- s$nevent
+
+  # broom table (robust SEs are already baked into coef(summary(fit)) when robust=TRUE)
+  out <- broom::tidy(fit, exponentiate = TRUE, conf.int = TRUE) %>%
+    mutate(
+      model = model_name,
+      n = n,
+      events = events,
+      # nicer labels
+      term = case_when(
+        term == "HIV_POSITIVE" ~ "HIV positive (vs negative)",
+        term == "ERAPost-DAA" ~ "Post-DAA (vs Pre-DAA)",
+        term == "HIV_POSITIVE:ERAPost-DAA" ~ "Interaction: HIV × Post-DAA",
+        str_detect(term, "^REC_HBV_SURF_ANTIGEN_COMB") ~ str_replace(term, "^REC_HBV_SURF_ANTIGEN_COMB", "HBsAg: "),
+        str_detect(term, "^REC_CMV_COMBINED") ~ str_replace(term, "^REC_CMV_COMBINED", "CMV: "),
+        TRUE ~ term
+      ),
+      hr_ci = sprintf("%.2f (%.2f–%.2f)", estimate, conf.low, conf.high),
+      p_fmt = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+    ) %>%
+    select(model, n, events, term, hr_ci, p_fmt)
+
+  out
+}
+
+# ---- helper: capture warnings while fitting (optional) ----
+fit_cox_capture_warning <- function(expr) {
+  w <- NULL
+  fit <- withCallingHandlers(
+    expr,
+    warning = function(m) {
+      w <<- c(w, conditionMessage(m))
+      invokeRestart("muffleWarning")
+    }
+  )
+  list(fit = fit, warnings = w)
+}
+
+# =========================
+# 1) Fit the models (copy/paste and adapt if you already have them)
+# =========================
+
+# Make sure ERA exists and is coded correctly
+matched_df$ERA <- factor(matched_df$ERA, levels = c("Pre-DAA", "Post-DAA"))
+
+pre_df  <- subset(matched_df, ERA == "Pre-DAA")
+post_df <- subset(matched_df, ERA == "Post-DAA")
+
+# Adjusted pre/post models (these can sometimes warn if sparse)
+res_pre  <- fit_cox_capture_warning(
+  coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~
+          HIV_POSITIVE + REC_HBV_SURF_ANTIGEN_COMB + REC_CMV_COMBINED,
+        data = pre_df,
+        robust = TRUE,
+        cluster = subclass)
+)
+
+res_post <- fit_cox_capture_warning(
+  coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~
+          HIV_POSITIVE + REC_HBV_SURF_ANTIGEN_COMB + REC_CMV_COMBINED,
+        data = post_df,
+        robust = TRUE,
+        cluster = subclass)
+)
+
+# Interaction model (pooled)
+res_int <- fit_cox_capture_warning(
+  coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~
+          HIV_POSITIVE * ERA + REC_HBV_SURF_ANTIGEN_COMB + REC_CMV_COMBINED,
+        data = matched_df,
+        robust = TRUE,
+        cluster = subclass)
+)
+
+cox_pre      <- res_pre$fit
+cox_post     <- res_post$fit
+cox_int_adj  <- res_int$fit
+
+# =========================
+# 2) Create a single clean table (HR (95% CI) + p)
+# =========================
+tab_pre  <- format_cox(cox_pre,  "Pre-DAA (adjusted)")
+tab_post <- format_cox(cox_post, "Post-DAA (adjusted)")
+tab_int  <- format_cox(cox_int_adj, "All eras (HIV×ERA + adjusted)")
+
+all_tabs <- bind_rows(tab_pre, tab_post, tab_int)
+
+print(all_tabs)
+
+# =========================
+# 3) Export to a text file (easy to email)
+# =========================
+out_dir <- "~/Desktop/slk_match"
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+txt_file <- file.path(out_dir, "SLK_Cox_PrePost_Interaction_Summary.txt")
+
+sink(txt_file)
+cat("SLK Cox Models (Matched Cohort)\n")
+cat("=========================================\n\n")
+
+cat("NOTE: Models use robust SEs clustered by matched set (subclass).\n")
+cat("      Matching weights are all 1 (nearest neighbor without replacement).\n\n")
+
+if (length(res_pre$warnings)) {
+  cat("Warnings (Pre-DAA model):\n")
+  cat(paste0("- ", unique(res_pre$warnings), collapse = "\n"), "\n\n")
+}
+if (length(res_post$warnings)) {
+  cat("Warnings (Post-DAA model):\n")
+  cat(paste0("- ", unique(res_post$warnings), collapse = "\n"), "\n\n")
+}
+if (length(res_int$warnings)) {
+  cat("Warnings (Interaction model):\n")
+  cat(paste0("- ", unique(res_int$warnings), collapse = "\n"), "\n\n")
+}
+
+cat("Table: Hazard ratios (95% CI) and p-values\n\n")
+print(all_tabs, row.names = FALSE)
+
+cat("\n\n--- Full model output (verbatim) ---\n\n")
+cat("\n[Pre-DAA adjusted model]\n")
+print(summary(cox_pre))
+cat("\n[Post-DAA adjusted model]\n")
+print(summary(cox_post))
+cat("\n[All eras interaction + adjusted model]\n")
+print(summary(cox_int_adj))
+
+sink()
+
+message("Saved: ", txt_file)
+
+# =========================
+# 4) (Optional) Also export as CSV for quick viewing
+# =========================
+csv_file <- file.path(out_dir, "SLK_Cox_PrePost_Interaction_Table.csv")
+write.csv(all_tabs, csv_file, row.names = FALSE)
+message("Saved: ", csv_file)
+
+```
+
+
+
+Let's analyze data for January 5th Abstract
+```{r ABSTRACT ANALYSIS}
+#Exposure: HIV_POSITIVE
+#Outcome: Overall Survival
+#Matching: Age, Gender, Era, MELD,HCV status?
+#Matching ratio, 1:5
+#Primary Analysis: Matched KM and Cox 
+
+#restrict sample set to after 2005
+tx_slk_2005 <- tx_slk_final %>%
+  filter(YEAR_TRANSPLANT >= 2005)
+
+#create smaller dataset 
+vars_needed <- c(
+  "HIV_POSITIVE", "ERA",
+  "REC_AGE_YEARS", "CAN_GENDER", "REC_HCV_STAT_COMB",
+  "TRANSPLANT_REASON_LI", "MELD_NUM_Last",
+  "REC_DEATH_yrs", "REC_DEATH_BINARY", "PERS_ID", "DONOR_ID", "REC_TX_DT_LI"
+)
+slk_small <- tx_slk_2005 %>%
+  select(any_of(vars_needed)) %>%
+  filter(complete.cases(.))
+
+#identify all HIV positive cases:
+hiv_pos_all <- tx_slk_2005 %>%
+  select(any_of(vars_needed)) %>%
+  filter(HIV_POSITIVE == 1)
+nrow(hiv_pos_all) #56
+#identify complete HIV cases
+hiv_pos_complete <- tx_slk_2005 %>%
+  select(any_of(vars_needed)) %>%
+  filter(HIV_POSITIVE == 1) %>%
+  filter(complete.cases(.))
+nrow(hiv_pos_complete)
+#identify lost cases:
+lost_hiv_pos <- anti_join(
+  hiv_pos_all,
+  hiv_pos_complete,
+  by = "PERS_ID"
+)
+nrow(lost_hiv_pos)
+#why missing?
+missing_summary <- lost_hiv_pos %>%
+  summarise(across(
+    all_of(vars_needed),
+    ~ sum(is.na(.x))
+  )) %>%
+  pivot_longer(
+    everything(),
+    names_to = "variable",
+    values_to = "n_missing"
+  ) %>%
+  arrange(desc(n_missing))
+
+missing_summary #lost cases to missing transplant reason
+
+#save lost HIV cases
+saveRDS(lost_hiv_pos, "~/Desktop/slk_match/lost_hiv_positive_cases.rds")
+
+
+#used 2014 as DAA era cut off as per paper
+#1:5 matching feasible
+#match exact on ERA
+#primary outcome = survival (can consider graft failure but keep simple for abstract)
+
+Matching_Variable_List<-c("REC_AGE_YEARS",
+                          "CAN_GENDER",
+                          "REC_HCV_STAT_COMB",
+                          "TRANSPLANT_REASON_LI",
+                          "MELD_NUM_Last",
+                          "ERA"
+                          )
+
+#save small dataset
+saveRDS(slk_small, "~/Desktop/slk_match/slk_small_for_matching.rds")
+#define matching formula, run in base R
+match_formula <- HIV_POSITIVE ~ 
+  REC_AGE_YEARS + CAN_GENDER + REC_HCV_STAT_COMB +
+  TRANSPLANT_REASON_LI + MELD_NUM_Last
+# m2 <- matchit(
+#   formula = match_formula,
+#   data    = slk_small,
+#   exact   = ~ ERA,
+#   method  = "nearest",
+#   ratio   = 5
+# )
+#for future -- keep in mind that AGE did not match that well 0.21
+#read in match from baseR 
+m2 <- readRDS("~/Desktop/slk_match/m2_nearest_ratio5.rds")
+matched_df5 <- match.data(m2)
+
+summary(m2)
+with(matched_df5, table(ERA, HIV_POSITIVE))
+
+# check size
+nrow(matched_df5)
+with(matched_df5, table(ERA, HIV_POSITIVE))
+
+
+saveRDS(matched_df5, "~/Desktop/slk_match/slk_matched_nearest_ratio5.rds")
+
+#Survival Analysis
+cox_main <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+  data = matched_df5
+)
+summary(cox_main)
+
+
+
+km_fit <- survfit(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+  data = matched_df5
+)
+
+summary(km_fit)
+logrank <- survdiff(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+  data = matched_df5
+)
+
+logrank
+
+
+#cox model stratified by era
+cox_era <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE + strata(ERA),
+  data = matched_df5
+)
+
+summary(cox_era)
+
+#cox model stratified by MELD era and DAA era
+matched_df5 <- matched_df5 %>%
+  mutate(
+    TX_DATE = as.Date(REC_TX_DT_LI),   # use your tx date var
+    MELD_ERA = case_when(
+      TX_DATE < as.Date("2016-01-11") ~ "Pre-MELDNa",
+      TRUE ~ "MELDNa"
+    )
+  )
+
+#sensitivity analysis -- stratification by MELD era, definition change in 2016:
+cox_both <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE + strata(ERA) + strata(MELD_ERA),
+  data = matched_df5
+)
+
+summary(cox_both)
+with(matched_df5, table(as.integer(format(as.Date(REC_TX_DT_LI), "%Y")) < 2016, HIV_POSITIVE))
+
+#sensitivity analysis -- adjusting for MELD era 
+cox_meldEra_adj <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE + strata(ERA) + MELD_ERA,
+  data = matched_df5
+)
+summary(cox_meldEra_adj)
+
+
+
+#making tables
+Cox_table_slk<-coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, 
+                     data = matched_df5)%>%
+  tbl_regression(exponentiate=TRUE)
+Cox_table_slk
+
+Cox_table_slk_strat<-coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE + strata(ERA), 
+                     data = matched_df5)%>%
+  tbl_regression(exponentiate=TRUE)
+Cox_table_slk_strat
+
+#make plot
+slk_death_plot <- ggsurvplot(
+  km_fit,
+  data = matched_df5,
+  risk.table = TRUE,
+  pval = TRUE,
+  pval.coord = c(1, 0.24),
+  conf.int = TRUE,
+  break.time.by = 1,
+  title = "Survival of HIV positive and HIV negative SLK transplant recipients",
+  xlab = "Time post-transplant (years)",
+  ylab = "Proportion surviving",
+  legend.labs = c("HIV negative", "HIV positive"),
+  risk.table.height = 0.3,
+  xlim = c(0, 7),
+  ylim = c(0, 1)
+)
+
+print(slk_death_plot)
+ggsave(
+  filename = "SLK_HIV_survival_KM.pdf",
+  plot = slk_death_plot$plot,
+  width = 7,
+  height = 6
+)
+
+
+#merge in variables to make demographic tables 
+intersect(names(matched_df5), names(tx_slk_final))
+
+matched_full <- tx_slk_final %>%
+  semi_join(
+    matched_df5 %>% select(PERS_ID),
+    by = "PERS_ID"
+  )
+
+
+# Check row count
+nrow(matched_full)
+nrow(matched_df5)
+
+# Check HIV balance
+with(matched_full, table(ERA, HIV_POSITIVE))
+
+#make demographic variables 
+matched_full %>%
+  select(
+    HIV_POSITIVE,
+    all_of(Don_Var_List),
+    all_of(Rec_Li_Var_List),
+    all_of(Rec_Ki_Var_List),
+    all_of(Cand_Li_Var_List),
+    all_of(Cand_Ki_Var_List)
+  ) %>%
+  tbl_summary(
+    by = HIV_POSITIVE,
+    missing = "ifany",
+    statistic = list(
+      all_continuous() ~ "{median} ({p25}, {p75})",
+      all_categorical() ~ "{n} ({p}%)"
+    )
+  ) %>%
+  add_p() %>% 
+  as_gt() %>%
+  gt::cols_label(
+    stat_1 = "Negative/Unknown",
+    stat_2 = "Positive"
+  ) %>%
+  gt::tab_header(
+    title = "Characteristics of HIV positive and negative SLK recipients"
+  ) %>% 
+  gt::gtsave("matched_table.png")
+
+table(tx_slk_final$HIV_POSITIVE)
+
+###PRE AND POST DAA Separate ANALYSIS
+# sanity checks
+table(matched_df5$ERA, useNA = "ifany")
+table(matched_df5$HIV_POSITIVE, useNA = "ifany")
+
+# make sure ERA is exactly "Pre-DAA" / "Post-DAA"
+unique(matched_df5$ERA)
+
+
+#create 2 separate era specific datasets
+pre_df  <- subset(matched_df5, ERA == "Pre-DAA")
+post_df <- subset(matched_df5, ERA == "Post-DAA")
+
+# quick check counts and events
+with(pre_df,  table(HIV_POSITIVE))
+with(post_df, table(HIV_POSITIVE))
+
+sum(pre_df$REC_DEATH_BINARY == 1, na.rm = TRUE)
+sum(post_df$REC_DEATH_BINARY == 1, na.rm = TRUE)
+
+#run KM and Log rank separately 
+library(survival)
+
+# Pre-DAA
+km_pre <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)
+lr_pre <- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)
+
+# Post-DAA
+km_post <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)
+lr_post <- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)
+
+lr_pre
+lr_post
+
+#run cox separately by era
+cox_pre  <- coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)
+cox_post <- coxph(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)
+
+summary(cox_pre)
+summary(cox_post)
+
+#interaction model
+matched_df5$ERA <- factor(matched_df5$ERA)  # ensure factor
+
+cox_int <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,
+  data = matched_df5
+)
+
+summary(cox_int)
+
+
+#KM Plots with separation by Era
+install.packages("survminer")  # only if you haven't
+library(survminer)
+
+library(survminer)
+
+# Pre-DAA KM with risk table
+p_pre<-ggsurvplot(
+  km_pre,
+  data = pre_df,
+  risk.table = TRUE,
+  pval = TRUE,
+  conf.int = TRUE,
+  xlab = "Years post-transplant",
+  ylab = "Survival probability",
+  legend.labs = c("HIV negative", "HIV positive"),
+  title = "Overall survival after SLK (Pre-DAA era)"
+)
+
+# Save KM curve + risk table together
+ggsave(
+  filename = "KM_PreDAA.png",
+  plot     = p_pre$combined,
+  width    = 8,
+  height   = 7,
+  dpi      = 300
+)
+
+# Post-DAA KM with risk table
+p_post<-ggsurvplot(
+  km_post,
+  data = post_df,
+  risk.table = TRUE,
+  pval = TRUE,
+  conf.int = TRUE,
+  xlab = "Years post-transplant",
+  ylab = "Survival probability",
+  legend.labs = c("HIV negative", "HIV positive"),
+  title = "Overall survival after SLK (Post-DAA era)"
+)
+
+ggsave(
+  filename = "KM_PostDAA.png",
+  plot     = p_post$combined,
+  width    = 8,
+  height   = 7,
+  dpi      = 300
+)
+print(p_pre)
+print(p_post)
+
+
+#estimated median survival
+#overall curve
+km_all <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+                  data = matched_df5)
+
+summary(km_all)$table
+
+#pre DAA
+km_pre <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+                  data = pre_df)
+
+summary(km_pre)$table
+
+#post DAA
+km_post <- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE,
+                   data = post_df)
+
+summary(km_post)$table
+
+
+# choose timepoints in YEARS because your time variable is REC_DEATH_yrs
+summary(km_post, times = c(1, 3, 5))$surv
+summary(km_post, times = c(1, 3, 5))$std.err
+s <- summary(km_post, times = c(1,3,5))
+data.frame(
+  strata = s$strata,
+  time_years = s$time,
+  surv = s$surv
+)
+
+summary(matched_df5$REC_AGE_YEARS[matched_df5$HIV_POSITIVE])
+summary(matched_df5$REC_AGE_YEARS)
+
+median(
+  matched_df5$REC_AGE_YEARS[matched_df5$HIV_POSITIVE == 1],
+  na.rm = TRUE
+)
+
+
+df <- matched_df5  # or tx_slk_final if you want full cohort
+
+df <- df %>%
+  mutate(
+    HCV_pos = REC_HCV_STAT_COMB %in% c("P", "Positive", "Y", "Yes", 1)
+  )
+hcv_by_era_hiv <- df %>%
+  group_by(ERA, HIV_POSITIVE) %>%
+  summarise(
+    n = n(),
+    n_hcv = sum(HCV_pos, na.rm = TRUE),
+    pct_hcv = 100 * mean(HCV_pos, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+hcv_by_era_hiv
+with(matched_df5, table(ERA, HIV_POSITIVE, REC_HCV_STAT_COMB, useNA = "ifany"))
+
+
+#formal test if effect of HIV on mortality differs between eras
+
+#use this one
+fit_interaction_matched_data <- coxph(
+  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,
+  data = matched_df5
+)
+
+summary(fit_interaction_matched_data) #p<.01
+
+```
+
+
+
+Let's merge SLK file with malig file
+```{r SLK and malig merge (come back to this)}
+#come back to this 
+tx_slk_txf_li_malig <- 
+```
+
+
+Let's merge SLK file with TXF_KI and TXF_KIs file
+```{r SLK and TXF merge come back to this after matching???}
+
+txf_li <- txf_li %>% rename(TRR_ID_LI = TRR_ID)
+tx_slk_final_txf_li <- left_join(tx_slk_final, txf_li, by = "TRR_ID_LI")%>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>%
+#convert "" to NAs
+  mutate(TFL_FAIL_BILIARY = na_if(TFL_FAIL_BILIARY, "")) %>% 
+  mutate(TFL_FAIL_INFECT = na_if(TFL_FAIL_INFECT, "")) %>% 
+  mutate(TFL_FAIL_PRIME_GRAFT_FAIL = na_if(TFL_FAIL_PRIME_GRAFT_FAIL, "")) %>% 
+  mutate(TFL_FAIL_PX_NONCOMP = na_if(TFL_FAIL_PX_NONCOMP, ""))
+
+nrow(tx_slk_final_txf_li) # there are so many f/u records bc multiple records based on time since transplant
+n_distinct(tx_slk_final_txf_li$PERS_ID)
+
+txf_ki <- txf_ki %>% rename(TRR_ID_KI = TRR_ID)
+tx_slk_final_txf_ki <- left_join(tx_slk_final, txf_ki, by = "TRR_ID_KI")%>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) 
+
+table(tx_slk_final_txf_ki$TFL_GRAFT_STAT)
+
+table(tx_slk_final_txf_li$TFL_FAIL_BILIARY)
+table(tx_slk_final_txf_li$TFL_FAIL_INFECT)
+sum(is.na(tx_slk_final_txf_li$TFL_FAIL_BILIARY))
+
+
+```
+
+
+Let's merge SLK with PRA data set
+```{r SLK and PRA merge}
+
+pra <- pra %>% rename(PX_ID_KI = PX_ID)
+tx_slk_final_pra <- left_join(tx_slk_final, pra, by = "PX_ID_KI")%>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x"))
+
+pra %>% count(PX_ID_KI) %>% filter(n > 1)
+
+sum(duplicated(pra$PX_ID_KI))
+
+pra %>%
+  semi_join(tx_slk_final, by = "PX_ID_KI") %>%
+  count(PX_ID_KI) %>%
+  filter(n > 1)
+
+```
+
+
+Let's merge SLK file with immuno file 
+```{r Merge in immuno file with SLK}
+#don't need immuno for liver unclear if need for kideny, leave for now 
+#combine TRR_ID between liver and kidney
+tx_slk_final_im<-tx_slk_final %>% 
+  mutate(TRR_ID = coalesce(TRR_ID_LI,TRR_ID_KI)) %>% 
+#merge immuno dataset with tx_slk_final
+  left_join(immuno, by = "TRR_ID")%>%
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) 
+```
+
+Now I want to add in donor_deceased file, combine with liver-only dataset, and process these variables
+```{r Merging Donor file with Liver-only file}
+#merge in donor file. have to make sure it merged correctly because there is missing data 
+tx_li_only_final<-left_join(, donor_deceased, by = "DONOR_ID") %>% 
+  select(-ends_with(".y")) %>% 
+  rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>% 
+#make donor HIV NAT variable binary
+  mutate(DON_HIV_NAT_POS=ifelse(DON_HIV_NAT=="P", 1, 0)) %>% 
+#make donor HCV stat binary
+  mutate(DON_HCV_POS=ifelse(DON_HCV_STAT=="1: Positive", 1, 0)) %>% 
+#make donor HCV Ab stat binary (note to self, used column from donor deceased but equivalent to SLK donor variables)
+  mutate(DON_HCV_AB_POS=ifelse(DON_ANTI_HCV=="P: Positive", 1, 0)) %>% 
+#make donor Hep B core Ab positive binary variab;e
+  mutate(DON_HBC_POS=ifelse(DON_HBC_STAT=="1: Positive", 1, 0))
+
+#come back to this because i am confused. below is seeing how many of missing donor info comes from rec HIV + 
+missing_donors <- tx_li_only_final_don %>%
+  filter(is.na(DON_HIV_NAT)) %>%
+  select(DONOR_ID) %>%
+  distinct()
+table(tx_li_only_final_don$DON_HCV_POS)
+
+
+```
+
+This section is for checking variables:
+```{r}
+#raw data vs after conversion in srtr package
+tx_li_raw <- tx_li_raw%>%
+  select(REC_AGE_IN_MONTHS_AT_TX,REC_AGE_AT_TX, everything())
+
+tx_slk_final<-tx_slk_final %>% 
+  select(REC_AGE_IN_MONTHS_AT_TX_LI,REC_AGE_AT_TX_LI, everything())
+  
+table(tx_slk_final$CAN_LAST_SRTR_LAB_MELD)
+summary(tx_li_raw$CAN_LAST_SRTR_LAB_MELD)
+
+
+#MELD vs PELD after extracting numeric data only 
+summary(tx_slk_final$CAN_LAST_SRTR_LAB_MELD_NUM)
+table(tx_slk_final$CAN_LAST_SRTR_LAB_MELD_NUM, useNA = "ifany")
+
+tx_slk_final %>% 
+  filter(is.na(CAN_LAST_SRTR_LAB_MELD_NUM) & !is.na(CAN_LAST_SRTR_LAB_MELD)) %>% 
+  select(CAN_LAST_SRTR_LAB_MELD) %>% 
+  distinct() %>% 
+  head(30)
+tx_slk_final %>%
+  filter(CAN_LAST_SRTR_LAB_MELD_NUM < 0) %>%
+  select(CAN_LAST_SRTR_LAB_MELD, CAN_LAST_SRTR_LAB_MELD_TY,REC_AGE_IN_MONTHS_AT_TX_LI, REC_AGE_AT_TX) %>%
+  distinct()
+
+tx_slk_final %>%
+  filter(CAN_LAST_SRTR_LAB_MELD_NUM < 0) %>%
+  View()
+```
+
+
+
+Now need to label categories for candidate primary diagnosis 
+```{r}
+
+library(tidyverse)
+library(writexl)
+
+#---------------------------------------------
+# 1. Extract unique values for kidney diagnoses
+#---------------------------------------------
+kidney_codes <- tx_slk_final %>%
+  distinct(REC_DGN_KI) %>%
+  filter(!is.na(REC_DGN_KI)) %>%
+  mutate(
+    Code = as.numeric(str_extract(REC_DGN_KI, "^[0-9]+")),
+    Diagnosis = str_trim(str_remove(REC_DGN_KI, "^[0-9]+:\\s*"))
+  ) %>%
+  arrange(Code) %>%
+  select(Code, Diagnosis)
+
+#---------------------------------------------
+# 2. Extract unique values for liver diagnoses
+#---------------------------------------------
+liver_codes <- tx_slk_final %>%
+  distinct(REC_DGN_LI) %>%
+  filter(!is.na(REC_DGN_LI)) %>%
+  mutate(
+    Code = as.numeric(str_extract(REC_DGN_LI, "^[0-9]+")),
+    Diagnosis = str_trim(str_remove(REC_DGN_LI, "^[0-9]+:\\s*"))
+  ) %>%
+  arrange(Code) %>%
+  select(Code, Diagnosis)
+
+#---------------------------------------------
+# 3. Export both lists to Excel (two sheets)
+#---------------------------------------------
+write_xlsx(
+  list(
+    "Kidney" = kidney_codes,
+    "Liver" = liver_codes
+  ),
+  "Diagnosis_Code_Lists_2.xlsx"
+  )
+
+
+```
+
+
+
+
+
+
+Now I combine the columns that are identical between liver and kidney text files, (come back to this and use de-duplicated list tx_slk_unique)
+```{r}
+names(tx_slk_clean)
+
+#identify name pairs
+li_cols <- grep("_LI$", names(tx_slk_clean), value = TRUE)
+ki_cols <- gsub("_LI$", "_KI", li_cols)
+# keep only those where the KI version actually exists
+paired <- li_cols[ki_cols %in% names(tx_slk_clean)]
+pairs  <- tibble(li = paired, ki = gsub("_LI$", "_KI", paired))
+
+#test the pairs for identical values
+ident_results <- purrr::map2_df(
+  pairs$li, pairs$ki,
+  ~{
+    v_li <- tx_slk_clean[[.x]]
+    v_ki <- tx_slk_clean[[.y]]
+    tibble(
+      li_col    = .x,
+      ki_col    = .y,
+      pct_equal = mean(v_li == v_ki | (is.na(v_li) & is.na(v_ki)))
+    )
+  }
+)
+#keep only columns that match 100%
+identical_pairs <- ident_results %>%
+  filter(pct_equal == 1)
+
+#create a copy of data set
+tx_slk_combined <- tx_slk_clean
+
+#combine identical pairs
+for (i in seq_len(nrow(identical_pairs))) {
+  li_name <- identical_pairs$li_col[i]
+  ki_name <- identical_pairs$ki_col[i]
+  base    <- sub("_LI$", "", li_name)
+
+  tx_slk_combined[[base]] <- dplyr::coalesce(
+    tx_slk_clean[[li_name]],
+    tx_slk_clean[[ki_name]]
+  )
+
+  tx_slk_combined[[li_name]] <- NULL
+  tx_slk_combined[[ki_name]] <- NULL
+}
+
+
+
+
+
+```
+
+
+
+Let's do some diagnostic checks of final data set
+```{r}
+# Dimensions and first few rows
+dim(tx_slk)
+head(tx_slk)
+
+# Missing values in key columns
+tx_slk %>%
+  summarise(
+    missing_pers_id = sum(is.na(PERS_ID)),
+    missing_date = sum(is.na(REC_TX_DT)),
+    missing_org_ty = sum(is.na(ORG_TY)),
+    missing_race = sum(is.na(DON_RACE)),
+    missing_org_ty= sum(is.na(REC_TX_ORG_TY)),
+    missing_graft_fail_date= sum(is.na(REC_FAIL_DT)) #11472????
+  )
+
+#frequency counts, check join results
+# How many per patient?
+tx_slk %>%
+  count(PERS_ID) %>%
+  summarise(
+    one_tx = sum(n == 1),
+    two_tx = sum(n == 2),
+    more = sum(n > 2)
+  )
+
+# Count by organ type
+tx_slk %>%
+  count(ORG_TY)
+
+# Cross-tab by organ type and year
+tx_slk %>%
+  mutate(tx_year = lubridate::year(REC_TX_DT)) %>%
+  count(tx_year, ORG_TY) %>%
+  tidyr::pivot_wider(names_from = ORG_TY, values_from = n, values_fill = 0)
+#time difference between kidney and liver
+tx_slk %>%
+  group_by(PERS_ID) %>%
+  summarise(
+    date_diff = as.numeric(max(REC_TX_DT) - min(REC_TX_DT)),
+    .groups = "drop"
+  ) %>%
+  count(date_diff) #there are a lot of dates>1 day which doesn't make sense
+
+tx_li %>% count(PERS_ID) %>% filter(n > 1) #12903
+tx_ki %>% count(PERS_ID) %>% filter(n > 1) #45210
+tx_slkRaw %>% filter(abs(as.numeric(REC_TX_DT_LI - REC_TX_DT_KI)) <= 1)
+
+
+#Now, check counts to see if merge makes sense 
+n_distinct(tx_slk$PERS_ID)
+nrow(tx_slk) ##difference in counts doesn't make sense, must be duplicate PERS_IDs?
+
+tx_slk <- tx_slk %>%
+  select(REC_TX_DT, ORG_TY, everything())
+
+tx_slk %>%
+  count(PERS_ID, REC_TX_DT) %>%
+  filter(n > 1)
+
+tx_slkRaw %>% 
+  filter(PERS_ID == "3905643") %>% 
+  select(PERS_ID, REC_TX_DT_LI, REC_TX_DT_KI, everything()) %>% 
+  arrange(REC_TX_DT_LI, REC_TX_DT_KI)
+
+```
+
+
+
+Identify mismatched SLK donors and export to excel
+```{r}
+mismatch_rows <- which(tx_slk_final$DONOR_ID_LI != tx_slk_final$DONOR_ID_KI)
+mismatch_data <- tx_slk_final[mismatch_rows, ]
+
+desired_front <- c(
+  "PERS_ID",
+  "DONOR_ID_LI", "DONOR_ID_KI",
+  "DON_TY_LI","DON_TY_KI",
+  "DON_AGE_LI", "DON_AGE_KI",
+  "DON_RACE_LI", "DON_RACE_KI",
+  "DON_DEATH_MECH_LI", "DON_DEATH_MECH_KI"
+)
+
+reordered_data <- mismatch_data %>%
+  select(all_of(desired_front), everything())
+
+write_xlsx(reordered_data, "SLK_Donor_Mismatches_2.xlsx")
+table(mismatch_data$HIV_POSITIVE)
+
+sum(mismatch_data$REC_HIV_STAT_KI == "P", na.rm = TRUE)
+
+
+```
+
+
+finding discordant HIV cases
+```{r}
+find_P_discordance <- function(df, root, id_var = "PERS_ID") {
+  
+  li_name <- paste0(root, "_LI")
+  ki_name <- paste0(root, "_KI")
+  
+  if (!all(c(li_name, ki_name) %in% names(df))) {
+    stop(paste("Columns", li_name, "and/or", ki_name, "not found in data frame"))
+  }
+  
+  df %>%
+    mutate(
+      li_val = .data[[li_name]],
+      ki_val = .data[[ki_name]]
+    ) %>%
+    filter(
+      # one is P, the other is NOT P
+      (li_val == "P" & ki_val != "P") |
+      (ki_val == "P" & li_val != "P")
+    ) %>%
+    select(
+      !!sym(id_var),
+      REC_TX_DT_LI, REC_TX_DT_KI,
+      DONOR_ID_LI, DONOR_ID_KI,
+      !!sym(li_name), !!sym(ki_name)
+    )
+}
+
+discordant_hiv_P <- find_P_discordance(tx_slk_final, "REC_HIV_STAT")
+discordant_hiv_P
+
+
+
+roots_to_check <- c(
+  "REC_HIV_STAT",
+  "REC_HCV_STAT",
+  "REC_HBV_ANTIBODY",
+  "REC_HBV_SURF_ANTIGEN",
+  "CAN_MALIG"
+)
+
+discordant_list <- lapply(roots_to_check, function(root) {
+  out <- find_P_discordance(tx_slk_final, root)
+  if (nrow(out) > 0) out$variable <- root
+  out
+})
+
+discordant_P_all <- bind_rows(discordant_list)
+discordant_P_all
+
+
+```
+
+
+
+```{r}
+find_discordant_li_ki <- function(df, root, id_var = "PERS_ID") {
+  li_name <- paste0(root, "_LI")
+  ki_name <- paste0(root, "_KI")
+  
+  if (!all(c(li_name, ki_name) %in% names(df))) {
+    stop(paste("Columns", li_name, "and/or", ki_name, "not found in data frame"))
+  }
+  
+  df %>%
+    mutate(
+      li_val = .data[[li_name]],
+      ki_val = .data[[ki_name]]
+    ) %>%
+    # keep rows where BOTH are non-missing and DIFFERENT
+    filter(
+      !is.na(li_val),
+      !is.na(ki_val),
+      li_val != ki_val
+    ) %>%
+    select(
+      !!sym(id_var),
+      REC_TX_DT_LI, REC_TX_DT_KI,
+      DONOR_ID_LI, DONOR_ID_KI,
+      !!sym(li_name),
+      !!sym(ki_name)
+    )
+}
+
+
+roots_to_check <- c(
+  "REC_HIV_STAT",
+  "REC_HCV_STAT",
+  "REC_HBV_ANTIBODY",
+  "REC_HBV_SURF_ANTIGEN",
+  "CAN_MALIG"     # your malignancy flag
+)
+
+
+discordant_list <- lapply(roots_to_check, function(root) {
+  res <- find_discordant_li_ki(tx_slk_final, root = root, id_var = "PERS_ID")
+  if (nrow(res) > 0) {
+    res$variable_root <- root
+  }
+  res
+})
+
+# bind all discordant rows into one data frame
+discordant_all <- bind_rows(discordant_list)
+
+# look at it
+discordant_all
+
+
+discordant_hiv <- find_discordant_li_ki(tx_slk_final, root = "REC_HIV_STAT", id_var = "PERS_ID")
+discordant_hiv
+
+
+discordant_counts <- discordant_all %>%
+  count(variable_root)
+
+discordant_counts
+
+```
+
+Then we process the data
+
+```{r processing}
+  
+# #take liver data set
+# li_clean<-tx_li %>% 
+#   #remove patients with missing transplant data (never transplanted)
+#   filter(!is.na(REC_TX_DT)) %>% 
+#   #remove patients younger than 16??? (check wih Dr. H if we want to do this)
+#   filter(REC_AGE_AT_TX>=16)%>%
+#   #create numeric HIV variable (assume missing is negative)
+#   mutate(HIV_POSITIVE=ifelse(REC_HIV_STAT=="P", 1, 0)) %>% 
+#   #calculate donor BMI
+#   mutate(DON_BMI=DON_WGT_KG/(DON_HGT_CM/100)^2) %>% 
+#   #create variable for transplant reason -- need to decide what reasons we want...hepatits? cirrhosis?
+#   mutate(TRANSPLANT_REASON=case_when(
+#   REC_DGN %in% c(3011, 3038, 3069)~"Type 1 DM",
+#   REC_DGN %in% c(3012, 3039, 3070)~"Type 2 DM",
+#   TRUE~"Other")) %>% 
+#   #Create race factor variable for donor
+#   mutate(DON_RACE_FACTOR=case_when(
+#     DON_RACE==8~"White",
+#     DON_RACE==16~"Black",
+#     DON_RACE==32~"American Indian or Alaska Native",
+#     DON_RACE==64~"Asian",
+#     DON_RACE==128~"Native Hawaiian or Other Pacific Islander",
+#     DON_RACE==256~"Arab or Middle Eastern",
+#     DON_RACE==512~"Indian Sub-continent",
+#     DON_RACE==1024~"Unknown (for Donor Referral only)",
+#     DON_RACE==2000~"Hispanic/Latino")) %>% 
+#   mutate(DON_RACE_FACTOR=factor(DON_RACE_FACTOR)) %>% 
+#   mutate(DON_BLACK=ifelse(DON_RACE==16, 1,0))%>%
+#   #create race factor variable for recipient
+#   mutate(REC_RACE_FACTOR=case_when(
+#     CAN_RACE==8~"White",
+#     CAN_RACE==16~"Black",
+#     CAN_RACE==32~"American Indian or Alaska Native",
+#     CAN_RACE==64~"Asian",
+#     CAN_RACE==128~"Native Hawaiian or Other Pacific Islander",
+#     CAN_RACE==256~"Arab or Middle Eastern",
+#     CAN_RACE==512~"Indian Sub-continent",
+#     CAN_RACE==1024~"Unknown (for Donor Referral only)",
+#     CAN_RACE==2000~"Hispanic/Latino"
+#   ))%>%
+#   mutate(REC_RACE_FACTOR=factor(REC_RACE_FACTOR))%>%
+#   mutate(REC_BLACK=ifelse(CAN_RACE==16, 1, 0)) %>% 
+#   
+#   #For REC_CMV_IGG, REC_CMV_STAT, and REC_HCV_STAT, recode "ND", "U", and "" as NA:
+#   mutate(REC_CMV_IGG=ifelse(REC_CMV_IGG=="ND"|REC_CMV_IGG=="U"|REC_CMV_IGG=="", NA, REC_CMV_IGG))%>%
+#   mutate(REC_CMV_STAT=ifelse(REC_CMV_STAT=="ND"|REC_CMV_STAT=="U"|REC_CMV_STAT=="", NA, REC_CMV_STAT))%>%
+#   mutate(REC_HCV_STAT=ifelse(REC_HCV_STAT=="ND"|REC_HCV_STAT=="U"|REC_HCV_STAT=="", NA, REC_HCV_STAT))
+# 
+# 
+#   #need factor for cause of death, come back to this
+#   
+# 
+# #take kidney data
+# ki_clean<-tx_ki %>% 
+# #remove patients with missing transplant data (never transplanted)
+#   filter(!is.na(REC_TX_DT)) %>% 
+#     #remove patients younger than 16??? (check wih Dr. H if we want to do this)
+#   filter(REC_AGE_AT_TX>=16)%>%
+#   #create numeric HIV variable (assume missing is negative)
+#   mutate(HIV_POSITIVE=ifelse(REC_HIV_STAT=="P", 1, 0)) %>% 
+#   #calculate donor BMI
+#   mutate(DON_BMI=DON_WGT_KG/(DON_HGT_CM/100)^2) %>% 
+#   #create variable for transplant reason -- need to decide what reasons we want...hepatits? cirrhosis?
+#   mutate(TRANSPLANT_REASON=case_when(
+#   REC_DGN %in% c(3011, 3038, 3069)~"Type 1 DM",
+#   REC_DGN %in% c(3012, 3039, 3070)~"Type 2 DM",
+#   TRUE~"Other")) %>% 
+#   #Create race factor variable for donor
+#   mutate(DON_RACE_FACTOR=case_when(
+#     DON_RACE==8~"White",
+#     DON_RACE==16~"Black",
+#     DON_RACE==32~"American Indian or Alaska Native",
+#     DON_RACE==64~"Asian",
+#     DON_RACE==128~"Native Hawaiian or Other Pacific Islander",
+#     DON_RACE==256~"Arab or Middle Eastern",
+#     DON_RACE==512~"Indian Sub-continent",
+#     DON_RACE==1024~"Unknown (for Donor Referral only)",
+#     DON_RACE==2000~"Hispanic/Latino")) %>% 
+#   mutate(DON_RACE_FACTOR=factor(DON_RACE_FACTOR)) %>% 
+#   mutate(DON_BLACK=ifelse(DON_RACE==16, 1,0))%>%
+#   #create race factor variable for recipient
+#   mutate(REC_RACE_FACTOR=case_when(
+#     CAN_RACE==8~"White",
+#     CAN_RACE==16~"Black",
+#     CAN_RACE==32~"American Indian or Alaska Native",
+#     CAN_RACE==64~"Asian",
+#     CAN_RACE==128~"Native Hawaiian or Other Pacific Islander",
+#     CAN_RACE==256~"Arab or Middle Eastern",
+#     CAN_RACE==512~"Indian Sub-continent",
+#     CAN_RACE==1024~"Unknown (for Donor Referral only)",
+#     CAN_RACE==2000~"Hispanic/Latino"
+#   ))%>%
+#   mutate(REC_RACE_FACTOR=factor(REC_RACE_FACTOR))%>%
+#   mutate(REC_BLACK=ifelse(CAN_RACE==16, 1, 0)) %>% 
+#   
+#   #For REC_CMV_IGG, REC_CMV_STAT, and REC_HCV_STAT, recode "ND", "U", and "" as NA:
+#   mutate(REC_CMV_IGG=ifelse(REC_CMV_IGG=="ND"|REC_CMV_IGG=="U"|REC_CMV_IGG=="", NA, REC_CMV_IGG))%>%
+#   mutate(REC_CMV_STAT=ifelse(REC_CMV_STAT=="ND"|REC_CMV_STAT=="U"|REC_CMV_STAT=="", NA, REC_CMV_STAT))%>%
+#   mutate(REC_HCV_STAT=ifelse(REC_HCV_STAT=="ND"|REC_HCV_STAT=="U"|REC_HCV_STAT=="", NA, REC_HCV_STAT))
+  
+
+```
+
+
