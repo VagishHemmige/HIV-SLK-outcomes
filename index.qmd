@@ -9,8 +9,7 @@ HIV SLK
 
 ## What this analysis does
 
-This project uses the [**Scientific Registry of Transplant Recipients**]() to analyze HIV.
-
+The goal of `HIV SLK outcomes` is to compared the outcomes of people living with HIV (PLWH) who have undergone simultaneous liver-kidney transplant to controls without HIV using the [Scientific Registry of Transplant Recipients](https://srtr.transplant.hrsa.gov/) database.
 
 
 ## Methods
@@ -38,5 +37,10 @@ The complete source code used to perform the full analysis and generate the tabl
 
 ## Abstracts/manuscripts
 
-This analysis has yet to be published to date.
+This analysis has yet to be published to date.  However, preliminary results have been presented at the NY-NJ Center for AIDS Research 
+2026 regional conference as a poster.
 
+![Poster preview](poster/Poster.png)
+
+[Download the poster (PowerPoint)](poster/Poster.pptx)  
+[Download as PDF](poster/Poster.pdf)
