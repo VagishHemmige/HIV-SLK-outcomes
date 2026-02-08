@@ -1,22 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/index.html</loc>
-    <lastmod>2026-02-08T22:59:31.808Z</lastmod>
-  </url>
-  <url>
-    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/LICENSE.html</loc>
-    <lastmod>2026-02-07T02:44:26.096Z</lastmod>
-  </url>
-  <url>
-    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/quarto/about.html</loc>
-    <lastmod>2026-01-02T00:01:11.138Z</lastmod>
-  </url>
-  <url>
-    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/quarto/setup.html</loc>
-    <lastmod>2026-02-07T01:17:00.172Z</lastmod>
-  </url>
-  <url>
     <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/quarto/tables.html</loc>
     <lastmod>2026-02-07T00:54:12.566Z</lastmod>
   </url>
@@ -25,7 +9,19 @@
     <lastmod>2026-02-07T17:04:18.692Z</lastmod>
   </url>
   <url>
+    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/quarto/about.html</loc>
+    <lastmod>2026-01-02T00:01:11.138Z</lastmod>
+  </url>
+  <url>
+    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/index.html</loc>
+    <lastmod>2026-02-08T22:59:31.808Z</lastmod>
+  </url>
+  <url>
     <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/quarto/figures.html</loc>
     <lastmod>2026-02-07T17:05:40.633Z</lastmod>
+  </url>
+  <url>
+    <loc>https://vagishhemmige.github.io/HIV-SLK-outcomes/quarto/setup.html</loc>
+    <lastmod>2026-02-07T01:17:00.172Z</lastmod>
   </url>
 </urlset>

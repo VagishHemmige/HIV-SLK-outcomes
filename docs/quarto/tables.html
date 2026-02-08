@@ -6,6 +6,8 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Hannah Rosenthal">
+<meta name="author" content="Vagish Hemmige">
 
 <title>Tables – HIV SLK Outcomes</title>
 <style>
@@ -173,10 +175,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 
 
+<div class="quarto-title-meta-author column-page-left">
+  <div class="quarto-title-meta-heading">Authors</div>
+  <div class="quarto-title-meta-heading">Affiliations</div>
+  
+    <div class="quarto-title-meta-contents">
+    <p class="author">Hannah Rosenthal <a href="mailto:vagish.hemmige@einsteinmed.edu" class="quarto-title-author-email"><i class="bi bi-envelope"></i></a> </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Albert Einstein College of Medicine
+          </p>
+      </div>
+    <div class="quarto-title-meta-contents">
+    <p class="author">Vagish Hemmige <a href="mailto:vahemmig@montefiore.org" class="quarto-title-author-email"><i class="bi bi-envelope"></i></a> </p>
+  </div>
+  <div class="quarto-title-meta-contents">
+        <p class="affiliation">
+            Montefiore Medical Center/ Albert Einstein College of Medicine
+          </p>
+      </div>
+  </div>
 
 <div class="quarto-title-meta column-page-left">
 
-    
+      
   
     
   </div>
@@ -304,7 +327,7 @@ Source code
 </section>
 <section id="modeled-total-excess-costs" class="level2">
 <h2 class="anchored" data-anchor-id="modeled-total-excess-costs">Modeled total excess costs</h2>
-<p>This code uses the <code>calculate_total_excess_costs()</code> function in the <code>R/functions.R</code> file to estimate the total excess cost in cases compared with controls. see the <a href="functions.qmd">functions</a> site for more details about the internal workings of the function.</p>
+<p>This code uses the <code>calculate_total_excess_costs()</code> function in the <code>R/functions.R</code> file to estimate the total excess cost in cases compared with controls. see the <a href="../quarto/functions.html">functions</a> site for more details about the internal workings of the function.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -317,13 +340,13 @@ Source code
 <h2 class="anchored" data-anchor-id="other-portions-of-the-analysis">Other portions of the analysis</h2>
 <ul>
 <li><a href="../quarto/setup.html"><strong>Setup</strong></a>: Defines global paths, data sources, cohort inclusion criteria, and analysis-wide constants.</li>
-<li><a href="functions.qmd"><strong>Functions</strong></a>: Reusable helper functions for cohort construction, matching, costing, and modeling.</li>
+<li><a href="../quarto/functions.html"><strong>Functions</strong></a>: Reusable helper functions for cohort construction, matching, costing, and modeling.</li>
 <li><a href="create_cohort.qmd"><strong>Create cohort</strong></a>: Constructs the initial time-varying cohort of kidney transplant recipients, defining cohort entry, follow-up structure, and case/control eligibility prior to matching.</li>
 <li><a href="execute_matching.qmd"><strong>Execute matching</strong></a>: Implements risk-set–based greedy matching without replacement to construct the analytic cohort.</li>
 <li><a href="postmatch_processing.qmd"><strong>Post-match processing</strong></a>: Derives analytic variables, time-aligned cost windows, and follow-up structure after matching.</li>
 <li><a href="modeling.qmd"><strong>Modeling</strong></a>: Fits prespecified cost and outcome models using the matched cohort.</li>
 <li><a href="../quarto/tables.html"><strong>Tables</strong></a>: Summary tables and regression outputs generated from the final models.</li>
-<li><a href="figures.qmd"><strong>Figures</strong></a>:Visualizations of costs, risks, and model-based estimates.</li>
+<li><a href="../quarto/figures.html"><strong>Figures</strong></a>:Visualizations of costs, risks, and model-based estimates.</li>
 <li><a href="../quarto/about.html"><strong>About</strong></a>: methods, assumptions, and disclosures</li>
 </ul>
 
