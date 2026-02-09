@@ -3,7 +3,7 @@
 
 
 
-#using function to combine variables
+# ----using combine_li_ki_consistent() function to combine variables----
 tx_slk_clean <- tx_slk_clean %>%
   mutate(
     # HTN
@@ -93,20 +93,23 @@ tx_slk_clean <- tx_slk_clean %>%
   )
 
 
-#count discordant cases
+# ----count discordant cases----
+
+# Discordant HCV status between liver and kidney data sets
 sum(
   (tx_slk_clean$REC_HCV_STAT_LI == "P" & tx_slk_clean$REC_HCV_STAT_KI == "N") |
   (tx_slk_clean$REC_HCV_STAT_LI == "N" & tx_slk_clean$REC_HCV_STAT_KI == "P"),
   na.rm = TRUE
 )
 
+# Discordant HBV surface antigen status between liver and kidney data sets
 sum(
   (tx_slk_clean$REC_HBV_SURF_ANTIGEN_LI == "P" & tx_slk_clean$REC_HBV_SURF_ANTIGEN_KI == "N") |
   (tx_slk_clean$REC_HBV_SURF_ANTIGEN_LI == "N" & tx_slk_clean$REC_HBV_SURF_ANTIGEN_KI == "P"),
   na.rm = TRUE
 )
 
-#attach labels 
+# ----attach labels ----
 var_label(tx_slk_clean$REC_CMV_COMBINED)<- var_label(tx_slk_clean$REC_CMV_STAT_LI)
 var_label(tx_slk_clean$CAN_DRUG_TREAT_HYPERTEN_COMB)<-var_label(tx_slk_clean$CAN_DRUG_TREAT_HYPERTEN_LI)
 var_label(tx_slk_clean$REC_HBV_ANTIBODY_COMB)<- var_label(tx_slk_clean$REC_HBV_ANTIBODY_LI)
