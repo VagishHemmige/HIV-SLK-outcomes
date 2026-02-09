@@ -1,11 +1,13 @@
 # Let's merge SLK with CAND_KIPA and CAND_LIIN
 
 
-#join SLK data set with CAND_KIPA
+# ----Join SLK data set with CAND_KIPA----
 cand_kipa <- cand_kipa %>% rename(PX_ID_KI = PX_ID)
 tx_slk_final <- tx_slk_final %>% left_join(cand_kipa, by = "PX_ID_KI")%>%
   select(-ends_with(".y")) %>% 
   rename_with(~ sub("\\.x$", "", .x), ends_with(".x"))%>%
+  
+  # ----Recode variables----
 #recode diabetes variable  
   mutate(
     CAN_DIAB = case_when(
@@ -58,14 +60,16 @@ tx_slk_final <- tx_slk_final %>% left_join(cand_kipa, by = "PX_ID_KI")%>%
     )
   )
 
-#keep original labels
+# ----keep original labels----
 var_label(tx_slk_final$CAN_DIAL)<-var_label(cand_kipa$CAN_DIAL)
 var_label(tx_slk_final$CAN_DIAB)<-var_label(cand_kipa$CAN_DIAB)
 var_label(tx_slk_final$CAN_FUNCTN_STAT_clean)<-var_label(cand_kipa$CAN_FUNCTN_STAT)
 
 
 table(tx_slk_final$CAN_FUNCTN_STAT_clean)
-# merge CAND_LIIN and tx_slk_final, process variables 
+
+
+# ----merge CAND_LIIN and tx_slk_final, process variables ----
 cand_liin <- cand_liin %>% 
   rename(PX_ID_LI = PX_ID) 
 
@@ -78,11 +82,13 @@ vars_to_recode <- c(
   "CAN_ENCEPH"
 )
 
+# ----Add liver candidate variables----
 tx_slk_final <- tx_slk_final %>% 
   left_join(cand_liin, by = "PX_ID_LI") %>%
   select(-ends_with(".y")) %>% 
   rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>%
   
+  # ----Recode variables----
   # Recode Y/N/U vars and create *_recode
   mutate(across(
     all_of(vars_to_recode),

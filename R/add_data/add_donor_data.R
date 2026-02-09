@@ -1,10 +1,12 @@
 # Now I want to add in the donor_deceased file, combine with the slk dataset, and process those variables
 
-# merge in donor file 
+# ----merge in donor file to SLK file----
 tx_slk_final <- tx_slk_final %>%
   left_join(donor_deceased, by = "DONOR_ID") %>%
   select(-ends_with(".y")) %>% 
   rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>% 
+  
+  # ----Recode missing values of variables----
   
   # recode donor HIV NAT variable
   mutate(DON_HIV_NAT_RECODED = case_when(

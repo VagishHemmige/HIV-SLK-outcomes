@@ -12,12 +12,16 @@ source("R/primary_data_preparation/excluding_prior_transplants.R")
 source("R/primary_data_preparation/combining_liver_kidney_variables.R")
 source("R/primary_data_preparation/create_hiv_data_set.R")
 source("R/primary_data_preparation/process_slk_data.R")
+source("R/primary_data_preparation/create_hiv_data_set.R")
+source("R/primary_data_preparation/create_liver_only_dataset.R")
 
-source("R/create_liver_only_dataset.R")
+
 
 #Adding data from other data sets
-source("R/add_donor_data.R")
-source("R/add_candidate_data.R")
+source("R/add_data/add_donor_data.R")
+source("R/add_data/add_candidate_data.R")
+
+
 
 #Modeling
 
