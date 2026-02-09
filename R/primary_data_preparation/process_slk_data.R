@@ -1,6 +1,7 @@
 #Let's process the SLK data
 
 
+# ----Create a number of new variables----
 tx_slk_final <- tx_slk_final %>%
   #exclude patients with mismatched donors
   filter(DONOR_ID_LI == DONOR_ID_KI) %>% 
@@ -626,13 +627,11 @@ tx_slk_final <- tx_slk_final %>%
   )
 
 
-#how many die before discharge?
+# ----how many die before discharge?----
 death_num_before_dc<-sum(!is.na(tx_slk_final$REC_DEATH_DT_COMPOSITE) & tx_slk_final$REC_DEATH_DT_COMPOSITE <= tx_slk_final$REC_DISCHRG_DT, na.rm = TRUE) #448
 
 
-saveRDS(tx_slk_final, "tx_slk_final.rds")
-
-#keep original labels
+# ----keep original labels----
 var_label(tx_slk_final$CAN_RACE)<-var_label(tx_slk_final$CAN_RACE_LI)
 var_label(tx_slk_final$CAN_ETHNICITY_SRTR)<-var_label(tx_slk_final$CAN_ETHNICITY_SRTR_LI)
 var_label(tx_slk_final$REC_FAIL_VASC_THROMB_recode)<-var_label(tx_slk_final$REC_FAIL_VASC_THROMB)
@@ -640,7 +639,7 @@ var_label(tx_slk_final$REC_FAIL_HEP_DENOVO_recode)<-var_label(tx_slk_final$REC_F
 
 
 
-
+# ----Break down era----
 table(tx_slk_final$ERA, useNA = "ifany")
 table(tx_slk_final$ERA, tx_slk_final$HIV_POSITIVE, useNA = "ifany")
 summary(tx_slk_final$YEAR_TRANSPLANT)
@@ -649,6 +648,7 @@ table(tx_slk_final$TRANSPLANT_REASON_LI)
 
 multi_kidney_organs <- tx_slk_final %>%
   filter(REC_TX_ORG_TY_KI %in% c("KI LI IN: Kidney-Liver-Intestine", "KI LI HR: Kidney-Liver-Heart"))  # adjust names if UNOS uses different labels
+
 
 # Count HIV status in this group
 table(multi_kidney_organs$HIV_POSITIVE, useNA = "ifany")
@@ -665,21 +665,25 @@ summary(tx_slk_final$REC_DEATH_yrs)
 
 # Should be >= 0
 sum(tx_slk_final$REC_DEATH_yrs < 0, na.rm = TRUE)
+if (sum(tx_slk_final$REC_DEATH_yrs < 0, na.rm = TRUE) > 0) {
+  stop("REC_DEATH_yrs contains negative values")
+}
 
-# Check short follow-up
+# ----Check short follow-up----
 summary(tx_slk_final$REC_DEATH_yrs[tx_slk_final$REC_DEATH_BINARY == 1])
 
+#Source of information that someone died
 tx_slk_final %>%
   filter(
     !is.na(PERS_OPTN_DEATH_DT_LI) | !is.na(PERS_OPTN_DEATH_DT_KI)
   ) %>%
   count(REC_DEATH_SOURCE)
 
-# Are LI and KI transplant dates basically the same?
+# ----Are LI and KI transplant dates basically the same?----
 summary(as.numeric(difftime(tx_slk_final$REC_TX_DT_LI, tx_slk_final$REC_TX_DT_KI, units="days")))
 
 
-#figure out which donor repeats, #354422
+# ----figure out which donor repeats----
 dup_donors <- tx_slk_final$DONOR_ID_LI[duplicated(tx_slk_final$DONOR_ID_LI)]
 dup_donors
 repeat_donor_id <- dup_donors[1]   # get the ID

@@ -10,7 +10,8 @@ source("R/functions.R")
 source("R/primary_data_preparation/import.R")
 source("R/primary_data_preparation/excluding_prior_transplants.R")
 source("R/primary_data_preparation/combining_liver_kidney_variables.R")
-source("R/create_hiv_data_set.R")
+source("R/primary_data_preparation/create_hiv_data_set.R")
+source("R/primary_data_preparation/process_slk_data.R")
 
 source("R/create_liver_only_dataset.R")
 
