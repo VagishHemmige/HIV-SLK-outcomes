@@ -81,6 +81,14 @@ collapse_donor_race <- function(x) {
 }
 
 
+#Converts a vector of labels into a list object for the gtsummary package
+make_gtsummary_labels <- function(named_vec) {
+  lapply(names(named_vec), function(v) {
+    as.formula(paste0(v, " ~ ", shQuote(unname(named_vec[[v]]))))
+  })
+}
+
+
 # Helper: convert NA / "" / " " to "Missing" and return a factor
 make_missing_level <- function(x, missing_label = "Missing") {
   x <- as.character(x)
