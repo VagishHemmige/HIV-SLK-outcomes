@@ -114,10 +114,11 @@ clean_labels <- function(tbl) {
 
 
 
-# -----------------------------
+# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***
 # Helper: extract robust HR/CI/p for HIV_POSITIVE
 # Uses vcov(fit) -> robust sandwich when you fit with robust=TRUE + cluster=subclass
-# -----------------------------
+# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***
+
 extract_hiv_row <- function(fit, label, ne = FALSE) {
   if (ne) {
     return(tibble(
@@ -152,13 +153,13 @@ extract_hiv_row <- function(fit, label, ne = FALSE) {
 }
 
 
-# -----------------------------
+# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***
 # Build the mega results table as a dataframe
 # Assumes you already created these Cox fits:
 # cox_main, cox_pre_unadj, cox_post_unadj
 # cox_kidney, cox_kidney_pre, cox_kidney_post
 # cox_liver, cox_liver_pre, cox_liver_post
-# -----------------------------
+# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***
 
 mega_df <- bind_rows(
   # Mortality block (overall/pre/post)
@@ -188,9 +189,14 @@ mega_df <- bind_rows(
   ) %>%
   rename(Outcome = OutcomeGroup)
 
-# -----------------------------
+
+
+
+
+# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***
 # Render with gt and save
-# -----------------------------
+# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***
+
 gt_tbl <- mega_df %>%
   gt(rowname_col = "Outcome") %>%
   tab_header(
@@ -366,7 +372,8 @@ extract_robust <- function(fit, cluster, model_label,
 }
 
 
-# ---- helper: format one cox model nicely ----
+# --- helper: format one cox model nicely ---
+
 format_cox <- function(fit, model_name = "Model") {
   s <- summary(fit)
   n <- s$n
@@ -395,7 +402,7 @@ format_cox <- function(fit, model_name = "Model") {
   out
 }
 
-# ---- helper: capture warnings while fitting (optional) ----
+# --- helper: capture warnings while fitting (optional) ---
 fit_cox_capture_warning <- function(expr) {
   w <- NULL
   fit <- withCallingHandlers(
