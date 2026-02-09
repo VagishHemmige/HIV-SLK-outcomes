@@ -3,20 +3,22 @@
 # Now I will create a data set that contains liver-only transplants (excluding SLK patients), excludes pediatric patients, 
 # excludes patients with prior transplant, and removes duplicates. using tx_slk_final data set 
 
-#starting with all liver transplants, exclude SLK PERSIDs
+# ----starting with all liver transplants, exclude SLK PERSIDs----
 tx_li_only<-tx_li %>% 
   filter(!PERS_ID %in% tx_slk_final$PERS_ID)
 
-#Exclude patients with prior transplants using CAN_PREV_TX
+# ----Exclude patients with prior transplants using CAN_PREV_TX----
 tx_li_only_preclean <- tx_li_only %>%
   filter(
     (is.na(CAN_PREV_TX) | CAN_PREV_TX == 0)
   )
-# Add first transplant info to exclude prior tx by date
+
+# ----Add first transplant info to exclude prior tx by date----
 tx_li_only_clean <- tx_li_only_preclean %>%
   left_join(first_tx, by = "PERS_ID") %>%
   filter(first_tx_date == REC_TX_DT)  # keeps only first transplant per patient
 
+# ----Date verification----
 # Ensure no overlap between SLK and liver-only datasets
 intersect_ids <- intersect(tx_slk_final$PERS_ID, tx_li_only_clean$PERS_ID)
 length(intersect_ids)  # should be 0
@@ -25,21 +27,24 @@ length(intersect_ids)  # should be 0
 cat("Liver-only rows:", nrow(tx_li_only_clean), "\n")
 cat("Unique patients:", n_distinct(tx_li_only_clean$PERS_ID), "\n")
 
-#remove duplicate patients, keeping only first liver transplant
+# ----Remove duplicate patients, keeping only first liver transplant----
 tx_li_only_clean %>%
   count(PERS_ID) %>%
   filter(n > 1) %>%
   arrange(desc(n))
-#export pts to identify duplicates manually
+
+#---- Export pts to identify duplicates manually----
 # Identify patients with more than one liver transplant
 li_dupes <- tx_li_only_clean %>%
   count(PERS_ID) %>%
   filter(n > 1)
+
 # Pull full rows for these duplicate patients
 li_dupe_rows <- tx_li_only_clean %>%
   semi_join(li_dupes, by = "PERS_ID") %>%
   arrange(PERS_ID, REC_TX_DT)
-#Add an empty column to flag patients for removal later
+
+# Add an empty column to flag patients for removal later
 li_dupe_rows <- li_dupe_rows %>%
   mutate(REMOVE_FLAG = NA_character_)  # you’ll fill this manually in Excel
 
@@ -47,30 +52,30 @@ li_dupe_rows <- li_dupe_rows %>%
 write_csv(
   li_dupe_rows %>%
     select(PERS_ID, REC_TX_DT, REC_FAIL_DT, REC_PX_STAT, REC_FAIL_REJ_ACUTE, REMOVE_FLAG, everything()),  # make important columns visible first
-  "liver_duplicate_patients_for_review_new.csv"
+  "data-private/liver_duplicate_patients_for_review_new.csv"
 )
 
-#Read manually edited file
-manual_flags <- read_csv("liver_duplicate_patients_for_review_new(in).csv")
+# ----Read manually edited file----
+manual_flags <- read_csv("data-private/liver_duplicate_patients_for_review_new(in).csv")
 
-# Filter only the rows flagged for removal and keep exact PERS_ID + REC_PX_STAT
+# ----Filter only the rows flagged for removal and keep exact PERS_ID + REC_PX_STAT----
 rows_to_remove <- manual_flags %>%
   filter(tolower(REMOVE_FLAG) == "remove") %>%
   select(PERS_ID, REC_PX_STAT) %>%
   distinct()  # ensures no duplicates
 
-#Remove these flagged rows from main dataset
+# ----Remove these flagged rows from main dataset----
 tx_li_only_clean2 <- tx_li_only_clean %>%
   anti_join(rows_to_remove, by = c("PERS_ID", "REC_PX_STAT"))
 
-# Check the result
+# ----Check the result----
 cat("Final liver-only rows:", nrow(tx_li_only_clean2), "\n")
 cat("Unique patients:", n_distinct(tx_li_only_clean2$PERS_ID), "\n")
 
 
-#Let's process Liver only data set
+# ----Let's process Liver only data set----
 
-#Create recipient age variable and exclude pediatrics patients <16
+# Create recipient age variable and exclude pediatrics patients <16----
 tx_li_only_final<-tx_li_only_clean2 %>%
    mutate(
      REC_AGE_YEARS = REC_AGE_IN_MONTHS_AT_TX / 12
