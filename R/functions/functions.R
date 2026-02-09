@@ -81,6 +81,31 @@ collapse_donor_race <- function(x) {
 }
 
 
+# Helper: convert NA / "" / " " to "Missing" and return a factor
+make_missing_level <- function(x, missing_label = "Missing") {
+  x <- as.character(x)
+  x <- trimws(x)
+  x[x == ""] <- NA
+  x[is.na(x)] <- missing_label
+  factor(x)
+}
+
+#fix variable levels
+recode_YNU <- function(x) {
+  recode(x,
+         "Y" = "Yes",
+         "N" = "No",
+         "U" = "Unknown",
+         .default = as.character(x))
+}
+
+recode_PNU <- function(x) {
+  recode(x,
+         "P" = "Positive",
+         "N" = "Negative",
+         "U" = "Unknown",
+         .default = as.character(x))
+}
 
 
 #Table-creating functions
