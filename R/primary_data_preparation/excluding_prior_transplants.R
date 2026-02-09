@@ -114,11 +114,14 @@ write_csv(
 )
 
 # ----manually identified duplicates, now creating a DF with exact rows to remove ----
-rows_to_remove <- tribble(
-  ~PERS_ID, ~REC_FAIL_DT_LI, ~REC_FAIL_DT_KI,
-  2117076, as.Date("1997-12-19"), as.Date("1997-08-14"),
-  4505523, NA, NA
-)
+
+rows_to_remove <- same_day_dupe_rows%>%
+  select(PERS_ID, REC_FAIL_DT_LI, REC_FAIL_DT_KI)%>%
+  arrange(REC_FAIL_DT_LI)%>%
+  group_by(PERS_ID)%>%
+  slice_tail(n=1)%>%
+  ungroup()
+
 
 # ----Remove those rows from main dataset----
 tx_slk_clean <- tx_slk_first %>%
@@ -134,7 +137,12 @@ tx_slk_clean %>%
 n_distinct(tx_slk_clean$PERS_ID)
 nrow(tx_slk_clean)
 
-
+if (nrow(tx_slk_clean) != dplyr::n_distinct(tx_slk_clean$PERS_ID)) {
+  stop(
+    "Invariant violated: expected exactly one row per PERS_ID in tx_slk_clean",
+    call. = FALSE
+  )
+}
 
 
 # ----Now perform diagnostic checks of tx_slk_clean----
@@ -157,3 +165,16 @@ tx_slk_clean %>%
 sum(is.na(tx_slk_clean$REC_TX_DT_LI))
 sum(is.na(tx_slk_clean$REC_TX_DT_KI))
 
+if (sum(is.na(tx_slk_clean$REC_TX_DT_LI))!= 0) {
+  stop(
+    "Invariant violated: REC_TX_DT_LI missing for at least one patient in tx_slk_clean",
+    call. = FALSE
+  )
+}
+
+if (sum(is.na(tx_slk_clean$REC_TX_DT_KI))!= 0) {
+  stop(
+    "Invariant violated: REC_TX_DT_KI missing for at least one patient in tx_slk_clean",
+    call. = FALSE
+  )
+}
