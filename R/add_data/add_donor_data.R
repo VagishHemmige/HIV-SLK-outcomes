@@ -2,6 +2,7 @@
 
 # ----merge in donor file to SLK file----
 tx_slk_final <- tx_slk_final %>%
+  mutate(DONOR_ID=DONOR_ID_LI)%>%                             #Hack
   left_join(donor_deceased, by = "DONOR_ID") %>%
   select(-ends_with(".y")) %>% 
   rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>% 
@@ -47,9 +48,10 @@ tx_slk_final <- tx_slk_final %>%
   )
 
 
-
+# ----Liver only; currently de-activated----
 # Now I want to add in donor_deceased file, combine with liver-only dataset, and process these variables
 #merge in donor file. have to make sure it merged correctly because there is missing data 
+if (FALSE){
 tx_li_only_final<-left_join(, donor_deceased, by = "DONOR_ID") %>% 
   select(-ends_with(".y")) %>% 
   rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>% 
@@ -71,3 +73,4 @@ table(tx_li_only_final_don$DON_HCV_POS)
 
 
 
+}

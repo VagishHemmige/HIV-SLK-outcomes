@@ -23,19 +23,38 @@ website:
   repo-url: https://github.com/VagishHemmige/HIV-SLK-outcomes
   repo-actions: [edit, issue]
   title: "HIV SLK Outcomes"
-  navbar:
-    left:
-      - href: index.html
-        text: Home
-      - href: quarto/setup.html
-        text: Setup
-      - href: quarto/functions.html
-        text: Functions
 
-    right:
-      - icon: github
-        href: https://github.com/VagishHemmige/HIV-SLK-outcomes
-        aria-label: GitHub repository
+  sidebar:
+    style: "docked"
+    search: true
+    contents:
+      - href: index.qmd
+        text: Home  
+
+      
+      - section: Setup and helper functions
+        contents:
+          - href: quarto/setup.qmd
+            text: Setup
+          - href: quarto/functions.qmd
+            text: Functions
+
+      - section: Code to create tables and figures
+        contents:
+          - href: quarto/tables.qmd
+            text: Tables
+          - href: quarto/figures.qmd
+            text: Figures
+
+
+custom-callout:
+  Rcode:
+    icon: true
+    icon-symbol: "💻 "
+    color: "pink"
+
+filters:
+- custom-callout
 
 format:
   html:
@@ -44,3 +63,5 @@ format:
     code-fold: true
     code-tools: true
     page-layout: full
+    code-summary: "Click to show/hide R Code"
+

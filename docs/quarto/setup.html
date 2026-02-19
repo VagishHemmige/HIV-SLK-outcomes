@@ -74,13 +74,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-2f5df379a58b258e96c21c0638c20c03.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-ddd961a2510921635943dfbbd19534c4.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-b512256bc363577b27543e003c495f0c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
-  "location": "navbar",
+  "location": "sidebar",
   "copy-button": false,
   "collapse-after": 3,
-  "panel-placement": "end",
-  "type": "overlay",
+  "panel-placement": "start",
+  "type": "textbox",
   "limit": 50,
   "keyboard-shortcut": [
     "f",
@@ -102,56 +102,113 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<style>
+div.callout-Rcode.callout {
+  border-left-color: pink;
+}
+div.callout-Rcode.callout-style-default > .callout-header {
+  background-color: rgb(from pink r g b / 13%);
+}
+div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
+div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
+  content: '💻';
+  background-image: none;
+}
+</style>
 
 
 </head>
 
-<body class="nav-fixed">
+<body class="nav-sidebar docked">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
-    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
-      <div class="navbar-container container-fluid">
-      <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="../index.html">
-    <span class="navbar-title">HIV SLK Outcomes</span>
-    </a>
-  </div>
-            <div id="quarto-search" class="" title="Search"></div>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
-  <span class="navbar-toggler-icon"></span>
-</button>
-          <div class="collapse navbar-collapse" id="navbarCollapse">
-            <ul class="navbar-nav navbar-nav-scroll me-auto">
-  <li class="nav-item">
-    <a class="nav-link" href="../index.html"> 
-<span class="menu-text">Home</span></a>
-  </li>  
-  <li class="nav-item">
-    <a class="nav-link active" href="../quarto/setup.html" aria-current="page"> 
-<span class="menu-text">Setup</span></a>
-  </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="../quarto/functions.html"> 
-<span class="menu-text">Functions</span></a>
-  </li>  
-</ul>
-            <ul class="navbar-nav navbar-nav-scroll ms-auto">
-  <li class="nav-item compact">
-    <a class="nav-link" href="https://github.com/VagishHemmige/HIV-SLK-outcomes"> <i class="bi bi-github" role="img" aria-label="GitHub repository">
-</i> 
-<span class="menu-text"></span></a>
-  </li>  
-</ul>
-          </div> <!-- /navcollapse -->
-            <div class="quarto-navbar-tools">
-</div>
-      </div> <!-- /container-fluid -->
-    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../quarto/setup.html">Setup and helper functions</a></li><li class="breadcrumb-item"><a href="../quarto/setup.html">Setup</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
 </header>
 <!-- content -->
-<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full">
 <!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">HIV SLK Outcomes</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Home</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Setup and helper functions</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../quarto/setup.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Setup</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../quarto/functions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Functions</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Code to create tables and figures</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../quarto/tables.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tables</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../quarto/figures.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Figures</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
@@ -164,15 +221,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="toc-actions"><ul><li><a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/edit/main/quarto/setup.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
     </div>
 <!-- main -->
-<main class="content column-page-left" id="quarto-document-content">
+<main class="content column-body" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default">
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../quarto/setup.html">Setup and helper functions</a></li><li class="breadcrumb-item"><a href="../quarto/setup.html">Setup</a></li></ol></nav>
 <div class="quarto-title">
 <div class="quarto-title-block"><div><h1 class="title">Setup</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">View Source</a></li></ul></div></div>
 </div>
 
 
-<div class="quarto-title-meta-author column-page-left">
+<div class="quarto-title-meta-author column-body">
   <div class="quarto-title-meta-heading">Authors</div>
   <div class="quarto-title-meta-heading">Affiliations</div>
   
@@ -194,7 +251,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       </div>
   </div>
 
-<div class="quarto-title-meta column-page-left">
+<div class="quarto-title-meta column-body">
 
       
   
@@ -207,7 +264,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p>The code in this script imports libraries, initializes constants, and performs other such preparatory work for the main analysis.</p>
-<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout callout-style-default callout-Rcode callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -228,7 +285,7 @@ Source code
 <p>The analysis relies on a set of open-source R packages for data management, cohort construction, visualization, and statistical modeling. These libraries were selected based on their stability, community support, and suitability for large-scale longitudinal health data.</p>
 <div class="cell">
 <details class="code-fold">
-<summary>Code</summary>
+<summary>Click to show/hide R Code</summary>
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Libraries necessary for the analysis</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">#File import libraries</span></span>
@@ -282,23 +339,23 @@ Source code
 <p>The table below lists the required packages along with links to their primary documentation.</p>
 <div class="cell">
 <div class="cell-output-display">
-<div id="xycfhvysvx" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#xycfhvysvx table {
+<div id="tgpmxciqat" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#tgpmxciqat table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#xycfhvysvx thead, #xycfhvysvx tbody, #xycfhvysvx tfoot, #xycfhvysvx tr, #xycfhvysvx td, #xycfhvysvx th {
+#tgpmxciqat thead, #tgpmxciqat tbody, #tgpmxciqat tfoot, #tgpmxciqat tr, #tgpmxciqat td, #tgpmxciqat th {
   border-style: none;
 }
 
-#xycfhvysvx p {
+#tgpmxciqat p {
   margin: 0;
   padding: 0;
 }
 
-#xycfhvysvx .gt_table {
+#tgpmxciqat .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -324,12 +381,12 @@ Source code
   border-left-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_caption {
+#tgpmxciqat .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#xycfhvysvx .gt_title {
+#tgpmxciqat .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -341,7 +398,7 @@ Source code
   border-bottom-width: 0;
 }
 
-#xycfhvysvx .gt_subtitle {
+#tgpmxciqat .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -353,7 +410,7 @@ Source code
   border-top-width: 0;
 }
 
-#xycfhvysvx .gt_heading {
+#tgpmxciqat .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -365,13 +422,13 @@ Source code
   border-right-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_bottom_border {
+#tgpmxciqat .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_col_headings {
+#tgpmxciqat .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -386,7 +443,7 @@ Source code
   border-right-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_col_heading {
+#tgpmxciqat .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -406,7 +463,7 @@ Source code
   overflow-x: hidden;
 }
 
-#xycfhvysvx .gt_column_spanner_outer {
+#tgpmxciqat .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -418,15 +475,15 @@ Source code
   padding-right: 4px;
 }
 
-#xycfhvysvx .gt_column_spanner_outer:first-child {
+#tgpmxciqat .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#xycfhvysvx .gt_column_spanner_outer:last-child {
+#tgpmxciqat .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#xycfhvysvx .gt_column_spanner {
+#tgpmxciqat .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -438,11 +495,11 @@ Source code
   width: 100%;
 }
 
-#xycfhvysvx .gt_spanner_row {
+#tgpmxciqat .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#xycfhvysvx .gt_group_heading {
+#tgpmxciqat .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -468,7 +525,7 @@ Source code
   text-align: left;
 }
 
-#xycfhvysvx .gt_empty_group_heading {
+#tgpmxciqat .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -483,15 +540,15 @@ Source code
   vertical-align: middle;
 }
 
-#xycfhvysvx .gt_from_md > :first-child {
+#tgpmxciqat .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#xycfhvysvx .gt_from_md > :last-child {
+#tgpmxciqat .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#xycfhvysvx .gt_row {
+#tgpmxciqat .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -510,7 +567,7 @@ Source code
   overflow-x: hidden;
 }
 
-#xycfhvysvx .gt_stub {
+#tgpmxciqat .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -523,7 +580,7 @@ Source code
   padding-right: 5px;
 }
 
-#xycfhvysvx .gt_stub_row_group {
+#tgpmxciqat .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -537,15 +594,15 @@ Source code
   vertical-align: top;
 }
 
-#xycfhvysvx .gt_row_group_first td {
+#tgpmxciqat .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#xycfhvysvx .gt_row_group_first th {
+#tgpmxciqat .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#xycfhvysvx .gt_summary_row {
+#tgpmxciqat .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -555,16 +612,16 @@ Source code
   padding-right: 5px;
 }
 
-#xycfhvysvx .gt_first_summary_row {
+#tgpmxciqat .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_first_summary_row.thick {
+#tgpmxciqat .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#xycfhvysvx .gt_last_summary_row {
+#tgpmxciqat .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -574,7 +631,7 @@ Source code
   border-bottom-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_grand_summary_row {
+#tgpmxciqat .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -584,7 +641,7 @@ Source code
   padding-right: 5px;
 }
 
-#xycfhvysvx .gt_first_grand_summary_row {
+#tgpmxciqat .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -594,7 +651,7 @@ Source code
   border-top-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_last_grand_summary_row_top {
+#tgpmxciqat .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -604,11 +661,11 @@ Source code
   border-bottom-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_striped {
+#tgpmxciqat .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#xycfhvysvx .gt_table_body {
+#tgpmxciqat .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -617,7 +674,7 @@ Source code
   border-bottom-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_footnotes {
+#tgpmxciqat .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -631,7 +688,7 @@ Source code
   border-right-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_footnote {
+#tgpmxciqat .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -640,7 +697,7 @@ Source code
   padding-right: 5px;
 }
 
-#xycfhvysvx .gt_sourcenotes {
+#tgpmxciqat .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -654,7 +711,7 @@ Source code
   border-right-color: #D3D3D3;
 }
 
-#xycfhvysvx .gt_sourcenote {
+#tgpmxciqat .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -662,72 +719,72 @@ Source code
   padding-right: 5px;
 }
 
-#xycfhvysvx .gt_left {
+#tgpmxciqat .gt_left {
   text-align: left;
 }
 
-#xycfhvysvx .gt_center {
+#tgpmxciqat .gt_center {
   text-align: center;
 }
 
-#xycfhvysvx .gt_right {
+#tgpmxciqat .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#xycfhvysvx .gt_font_normal {
+#tgpmxciqat .gt_font_normal {
   font-weight: normal;
 }
 
-#xycfhvysvx .gt_font_bold {
+#tgpmxciqat .gt_font_bold {
   font-weight: bold;
 }
 
-#xycfhvysvx .gt_font_italic {
+#tgpmxciqat .gt_font_italic {
   font-style: italic;
 }
 
-#xycfhvysvx .gt_super {
+#tgpmxciqat .gt_super {
   font-size: 65%;
 }
 
-#xycfhvysvx .gt_footnote_marks {
+#tgpmxciqat .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#xycfhvysvx .gt_asterisk {
+#tgpmxciqat .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#xycfhvysvx .gt_indent_1 {
+#tgpmxciqat .gt_indent_1 {
   text-indent: 5px;
 }
 
-#xycfhvysvx .gt_indent_2 {
+#tgpmxciqat .gt_indent_2 {
   text-indent: 10px;
 }
 
-#xycfhvysvx .gt_indent_3 {
+#tgpmxciqat .gt_indent_3 {
   text-indent: 15px;
 }
 
-#xycfhvysvx .gt_indent_4 {
+#tgpmxciqat .gt_indent_4 {
   text-indent: 20px;
 }
 
-#xycfhvysvx .gt_indent_5 {
+#tgpmxciqat .gt_indent_5 {
   text-indent: 25px;
 }
 
-#xycfhvysvx .katex-display {
+#tgpmxciqat .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#xycfhvysvx div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#tgpmxciqat div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1371,7 +1428,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>::: callout-note</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>::: Rcode</span>
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="fu">### Source code</span></span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>The full R script is available at:</span>

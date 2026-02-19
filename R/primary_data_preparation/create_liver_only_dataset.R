@@ -55,6 +55,8 @@ write_csv(
   "data-private/liver_duplicate_patients_for_review_new.csv"
 )
 
+
+if (FALSE){
 # ----Read manually edited file----
 manual_flags <- read_csv("data-private/liver_duplicate_patients_for_review_new(in).csv")
 
@@ -148,3 +150,4 @@ tx_li_only_final<-tx_li_only_clean2 %>%
 
 
 
+}

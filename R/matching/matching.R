@@ -104,6 +104,7 @@ saveRDS(match_df, "data-private/match_df_for_baseR_cmv_hbv.rds")
 # + )
 
 
+if (FALSE){
 # ----export match back into Rstudio----
 matched_obj <- readRDS("~/Desktop/slk_match/matched_cmv_hbv_era_exact_txcal365.rds")
 
@@ -155,5 +156,4 @@ matched_df <- matched_df %>%
     REC_CMV_COMBINED = recode_PNU(REC_CMV_COMBINED)
   )
 
-
-
+}
