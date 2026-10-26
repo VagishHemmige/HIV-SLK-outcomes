@@ -18,6 +18,7 @@ Read the three files before making changes. Each covers its own topic and does n
 This repository compares mortality and graft outcomes after simultaneous liver–kidney (SLK) transplantation between recipients with and without HIV. It uses Scientific Registry of Transplant Recipients (SRTR) standard analysis files, and it publishes its code and methods as a Quarto website.
 
 - **`analysis-plan.md` is the source of truth for design.** It covers the cohort, exposure, era, matching, outcomes, models, and sensitivity analyses. Code implements the plan; it does not redefine it.
+  - The plan contains no code: no scripts, functions, objects, packages beyond those named as methods, or descriptions of what the code currently does. Rules for the code go in this file, a description of the code in `ARCHITECTURE.md`, and gaps between the code and the plan in Issues. SRTR variable names are data definitions and may appear in the plan.
   - If the code needs to depart from the plan, change the plan in the same pull request.
   - Plan changes are tracked in git, not in a change log inside the plan. Commit each design change on its own, with a message that gives the reason and says whether any results that depend on it had already been seen.
   - The plan lists open design choices as **Decision D*n*** in its "Open decisions" table. Do not settle one in code. Raise it with the maintainer. Until it is settled, the code keeps the behaviour that produced the poster results and says so in a comment that names the decision.

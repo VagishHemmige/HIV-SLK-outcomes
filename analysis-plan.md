@@ -2,7 +2,7 @@
 
 **Version:** 0.1 (draft) · **Date:** 2026-10-25 · **Authors:** Hannah Rosenthal, Christina Tsai, Jonathan Mamber Czeresnia, Vagish Hemmige, Clara Tow
 
-This plan states the intended design and analysis. It does not describe the current state of the code; implementation status is tracked in [GitHub Issues](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues). It was reconstructed from the 2026 NY-NJ CFAR poster, the draft manuscript methods, and the analysis code. Where those sources disagree, the disagreement is listed as **Decision D*n*** in [Open decisions](#13-open-decisions) rather than resolved here.
+This plan states the intended design and analysis. It was reconstructed from the 2026 NY-NJ CFAR poster and the draft manuscript methods. Where those sources disagree, or where the method behind the poster results is not documented, the choice is listed as **Decision D*n*** in [Open decisions](#13-open-decisions) rather than resolved here.
 
 Reporting will follow STROBE. The [reporting map](#12-reporting-map) links each checklist item to a section of this plan.
 
@@ -24,11 +24,11 @@ To compare all-cause mortality after simultaneous liver–kidney (SLK) transplan
 
 Retrospective matched cohort study in national transplant registry data. Each HIV-positive SLK recipient is matched to up to five HIV-negative SLK recipients on a propensity score, with exact matching on DAA era and a caliper on transplant date ([Section 6](#6-matching)). All outcome analyses are conducted in the matched cohort.
 
-The draft manuscript calls the design a "matched case-control study". Because exposure (HIV) defines the groups and outcomes are followed forward from transplant, this plan describes it as a matched cohort; the manuscript wording should follow.
+The draft manuscript calls the design a "matched case-control study". Because exposure (HIV) defines the groups and outcomes are followed forward from transplant, this plan describes it as a matched cohort.
 
 ## 3. Data source
 
-- **Scientific Registry of Transplant Recipients (SRTR)** standard analysis files, Spring 2023 release, accessed under a data use agreement through the [`sRtr`](https://github.com/VagishHemmige/sRtr) R package.
+- **Scientific Registry of Transplant Recipients (SRTR)** standard analysis files, Spring 2023 release, accessed under a data use agreement.
   - Transplant recipient files: liver (`tx_li`) and kidney (`tx_ki`).
   - Candidate files: kidney–pancreas (`cand_kipa`) and liver/intestine (`cand_liin`).
   - Deceased donor file (`donor_deceased`).
@@ -46,7 +46,7 @@ An SLK transplant is a liver transplant and a kidney transplant in the same pers
 ### 4.2 Inclusion
 
 1. SLK transplant during the study period ([Section 3](#3-data-source)).
-2. Recipient age at transplant of at least 16 years. **Decision D1:** the age threshold (the code uses ≥16 years; the manuscript says "greater than 16" and "adult").
+2. Recipient age at transplant of at least 16 years. **Decision D1:** the age threshold (the poster cohort used ≥16 years; the manuscript says "greater than 16" and "adult").
 3. Non-missing identifiers needed for linkage and follow-up, including the donor identifier in both files.
 
 ### 4.3 Exclusion
@@ -68,7 +68,7 @@ Recipient HIV serostatus at transplant, from `REC_HIV_STAT` in the liver and kid
 - **HIV-negative:** every other non-discordant recipient, including those whose status is unknown or not done in both files.
 - **Discordant** (positive in one file, negative in the other): excluded ([Section 4.3](#43-exclusion)).
 
-**Decision D2:** the manuscript says a positive status must be "not contradicted by an 'unknown' designation" in the other file, while the code classifies positive-plus-unknown as positive. The rule must be settled, and the manuscript and code made to agree. Because HIV-negative includes unknown status, tables label that group "Negative/Unknown".
+**Decision D2:** the manuscript says a positive status must be "not contradicted by an 'unknown' designation" in the other file, while the poster cohort classified positive-plus-unknown as positive. Because HIV-negative includes unknown status, tables label that group "Negative/Unknown".
 
 ### 5.2 DAA era
 
@@ -85,12 +85,12 @@ The composite transplant date: the earlier of the liver and kidney transplant da
 
 ### 6.1 Method
 
-- **Propensity score:** probability of HIV-positive status, estimated by logistic regression, using `MatchIt`.
+- **Propensity score:** probability of HIV-positive status, estimated by logistic regression.
 - **Exact matching** on DAA era.
 - **Caliper** of 365 days on the transplant date.
 - **Nearest-neighbour matching without replacement**, ratio 1:5 (up to five HIV-negative recipients per HIV-positive recipient).
 - **No caliper on the propensity score** itself.
-- Matching is reproducible from a recorded seed, and the matched-set identifier (`subclass`) is carried through to every outcome model.
+- Matching is reproducible, and the matched set is carried through to every outcome model.
 
 ### 6.2 Propensity score covariates
 
@@ -104,9 +104,9 @@ The composite transplant date: the earlier of the liver and kidney transplant da
 
 Serologies are harmonized across the liver and kidney files: positive if positive in one file and positive or missing in the other; negative if negative in one and negative or missing in the other; directly conflicting values (positive versus negative) are treated as missing.
 
-**Decision D3:** the covariate set. The code's model includes recipient race; the manuscript list omits it; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper).
+**Decision D3:** the covariate set, including whether recipient race is included. The manuscript list omits race; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper). The covariate set behind the poster results is not fully documented.
 
-**Decision D4:** handling of missing covariate values. Categorical covariates use an explicit "Missing" level. For continuous covariates (MELD, donor age, recipient age) the matching code that produced the poster results is not in the repository, so the approach used is unknown: complete-case exclusion before matching, missing indicators, or imputation.
+**Decision D4:** handling of missing covariate values. Categorical covariates use an explicit "Missing" level. For continuous covariates (MELD, donor age, recipient age), the method used for the poster results is not documented. The options are complete-case exclusion before matching, missing indicators, or imputation.
 
 ### 6.3 Matching outcomes reported
 
@@ -162,7 +162,7 @@ Evaluated separately for the kidney and the liver graft.
 - Cox models fitted separately within the pre-DAA and post-DAA matched cohorts. Matched sets stay within one era because era is matched exactly.
 - A model with an HIV × era interaction in the full matched cohort, to test for effect modification. The interaction hazard ratio is the ratio of the post-DAA to the pre-DAA hazard ratio.
 
-**Decision D7:** whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance (the code also fits models adjusted for HBV surface antigen and CMV).
+**Decision D7:** whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance after matching (for example, HBV surface antigen and CMV).
 
 **Decision D10:** handling of sparse or zero events (for example, liver graft failure in the post-DAA era): report as not estimable, or use Firth's penalized Cox regression.
 
@@ -170,7 +170,7 @@ Evaluated separately for the kidney and the liver graft.
 
 Compared between groups with the Wilcoxon rank-sum test, because of its right-skewed distribution.
 
-**Decision D6:** the code also fits negative binomial and log-linear regressions with cluster-robust standard errors. Whether these are reported as secondary analyses must be decided.
+**Decision D6:** whether length of stay is also analysed by regression (negative binomial or log-linear, with standard errors clustered on matched set) as a secondary analysis.
 
 ### 8.6 Missing data
 
@@ -180,7 +180,7 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 ### 8.7 Inference and software
 
 - All tests are two-sided, with p < 0.05 considered statistically significant.
-- Analyses are run in R (version 4.5.1 for the poster results). Package versions, including the `sRtr` commit, are recorded for every result.
+- Analyses are run in R (version 4.5.1 for the poster results), with propensity score matching in `MatchIt`.
 - Code is public at https://github.com/VagishHemmige/HIV-SLK-outcomes, and a website at https://vagishhemmige.github.io/HIV-SLK-outcomes documents each step. Data are not shared, as the data use agreement requires.
 
 ## 9. Sensitivity analyses
@@ -192,7 +192,7 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 ## 10. Disclosure control
 
 - All outputs are reviewed against the SRTR data use agreement before they leave the secure environment.
-- **Decision D8:** the small-cell rule for tables, figures, flow diagrams, risk tables and website text (for example, suppressing counts below 11). The poster reported some counts below 11; the governing agreement's exact wording must be checked.
+- **Decision D8:** the small-cell rule for tables, figures, flow diagrams, risk tables and website text, under the exact wording of the SRTR data use agreement (for example, suppressing counts below 11).
 - Figures that show individual people are not published.
 
 ## 11. Limitations to address in reporting
@@ -227,7 +227,7 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 
 | ID | Decision | Section |
 |---|---|---|
-| D1 | Recipient age threshold: ≥16 years (code), >16 years, or adults ≥18 years | 4.2 |
+| D1 | Recipient age threshold: ≥16 years (poster), >16 years, or adults ≥18 years | 4.2 |
 | D2 | HIV classification when one file is positive and the other unknown or not done | 5.1 |
 | D3 | Propensity score covariate set, including recipient race | 6.2 |
 | D4 | Missing continuous covariates in the propensity score | 6.2 |
