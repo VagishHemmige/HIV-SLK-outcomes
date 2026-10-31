@@ -1,0 +1,75 @@
+# Renders the website and publishes it to the gh-pages branch, which GitHub
+# Pages serves. Runs on every push to master, or by hand from the Actions tab.
+# On a pull request it only renders, as a check that every page still builds.
+# Based on the publish.yml in the r-analysis-workflow plugin, Quarto's GitHub
+# Pages guide and quarto-dev/quarto-actions, as first used in
+# Dialysis-facility-density-USRDS.
+#
+# The only R these pages run is on the Setup page: it attaches tidyverse and gt
+# and shows the table of packages the analysis uses, built from text. They
+# never run analysis code (AGENTS.md, "Quarto website"), and this machine has
+# no SRTR data. The home page shows the poster committed in poster/, which was
+# approved for public release. A failed render publishes nothing, so the last
+# good site stays live.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: master
+  pull_request:
+    branches: master
+
+name: Publish website
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      # So R reads and writes non-ASCII characters (such as ≤) as UTF-8
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # Quarto must be set up before R: the other way round, its install step
+      # failed in the pilot repository.
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          # Pinned so a new Quarto release can't change the site unseen.
+          # The version that rendered the committed docs/; to move to a newer
+          # version, change this line in a pull request.
+          version: 1.6.42
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # Only what the pages run: knitr and rmarkdown for the R chunks, and the
+      # two packages the Setup page attaches (tidyverse also provides tibble).
+      # Current CRAN versions.
+      - name: Install the R packages the pages use
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::knitr
+            any::rmarkdown
+            any::tidyverse
+            any::gt
+
+      - name: Render (pull requests only)
+        if: github.event_name == 'pull_request'
+        uses: quarto-dev/quarto-actions/render@v2
+
+      - name: Render and publish to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: quarto-dev/quarto-actions/publish@v2
+        with:
+          target: gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

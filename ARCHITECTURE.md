@@ -12,7 +12,7 @@ The project compares outcomes after simultaneous liver–kidney (SLK) transplant
 4. Prepare data for propensity score matching (the matching itself runs outside the repository; see [Matching](#matching)).
 5. Fit Cox and length-of-stay models in the matched cohort and produce tables and figures.
 
-A Quarto website in `quarto/` is rendered to `docs/`. Its pages were adapted from another project and do not yet describe this project's scripts.
+A Quarto website in `quarto/` is rendered by `.github/workflows/publish.yml` and published to the `gh-pages` branch, which GitHub Pages serves; the local render in `docs/` is not committed. Its pages were adapted from another project and do not yet describe this project's scripts.
 
 ## Script and Object Flow
 

@@ -64,7 +64,7 @@ The Quarto site documents the code. It does not run the analysis.
 - **Setup files:** `_quarto.yml` and `index.qmd` sit at the root. There is one page per pipeline script in `quarto/`, named after the script (for example, `quarto/process_slk_data.qmd` for `R/primary_data_preparation/process_slk_data.R`). The `custom-callout` extension in `_extensions/` provides the `Rcode` callout.
 - **Showing code:** each page loads its script with `knitr::read_chunk()` in a hidden chunk. It then shows each labelled section in a chunk with `#| eval: false`, with prose explaining what the section does and why. Pages link to the script on GitHub and to the scripts it depends on.
 - **Never evaluate analysis code in the site.** Pages must render without SRTR data. The rendered site therefore contains code and explanation only, never results. The one exception is the poster on the home page, which was already approved for public release.
-- **Rendering:** the site renders to `docs/` and is served by GitHub Pages. Re-render after changing a script's labels or a page's prose, and commit `docs/`.
+- **Rendering:** the site renders to `docs/`, which is not committed. `.github/workflows/publish.yml` renders it on every pull request as a check and, on each push to `master`, publishes it to the `gh-pages` branch, which GitHub Pages serves. Render locally to preview a change to a script's labels or a page's prose, but do not commit the output.
 - **New scripts:** when you add a script, add its page and its sidebar entry in `_quarto.yml` in the same commit.
 - **Prose must match the code.** If a change alters what a section does, update that section's explanation in the same pull request.
 
@@ -186,7 +186,7 @@ Before opening a pull request, check the items below that apply to your change.
 **Structure and documentation**
 
 - Are the chunk labels unique, and does each script's Quarto page still find every label it uses?
-- Does every pipeline script have a Quarto page and a sidebar entry, and has `docs/` been re-rendered?
+- Does every pipeline script have a Quarto page and a sidebar entry, and does the pull request's render check pass?
 - Are all site chunks `eval: false`?
 - Are new derived variables labelled?
 - Has the maintainer been told that `ARCHITECTURE.md` needs regenerating, if scripts or data flow changed?
