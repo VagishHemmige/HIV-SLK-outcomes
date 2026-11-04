@@ -114,9 +114,12 @@ Scripts are divided into labelled sections, so that Quarto pages can show the co
 
 The Quarto site documents the code. It does not run the analysis.
 
-- **Setup files:** `_quarto.yml` and `index.qmd` sit at the root. There is one page per pipeline script in `quarto/`, named after the script (for example, `quarto/process_slk_data.qmd` for `R/primary_data_preparation/process_slk_data.R`). The `custom-callout` extension in `_extensions/` provides the `Rcode` callout.
-- **Showing code:** each page loads its script with `knitr::read_chunk()` in a hidden chunk. It then shows each labelled section in a chunk with `#| eval: false`, with prose explaining what the section does and why. Pages link to the script on GitHub and to the scripts it depends on.
-- **Never evaluate analysis code in the site.** Pages must render without SRTR data. The rendered site therefore contains code and explanation only, never results. The one exception is the poster on the home page, which was already approved for public release.
+- **Setup files:** `_quarto.yml`, `index.qmd`, `404.qmd` (the page GitHub Pages shows for a missing address) and `styles.css` sit at the root. There is one page per pipeline script in `quarto/`, named after the script (for example, `quarto/process_slk_data.qmd` for `R/primary_data_preparation/process_slk_data.R`), plus the project-document and About pages. The `custom-callout` extension in `_extensions/` provides the `Rcode`, `Results` and `Pending` callouts.
+- **Visual cues.** Each kind of page has one sidebar icon, coloured by `styles.css`, and pages mark the same kind of content with the callout of that colour: background `book` (blue); study design and methods `diagram-3` (orange); R code `laptop` (pink, `Rcode` 💻); results `clipboard-data` (green, `Results` 📊); project documents `file-earmark-ruled` (grey). Give every new page the icon of its kind.
+- **Provisional content.** `quarto/_pending.lua` highlights in yellow every paragraph that starts with **Decision pending:** or, in the plan, **Open:**, and any `[text]{.pending}`, and adds a ⏳ `Pending` callout to pages that have a mark. Mark only what an open decision could change, and remove the mark when the decision is settled.
+- **Project documents.** `analysis-plan.md`, `ARCHITECTURE.md`, `AGENTS.md` and `REPOSITORY-BLUEPRINT.md` are shown on the site by pages in `quarto/` that only include the root file, which stays the one source: edit the root file, not the page.
+- **Showing code:** each page loads its script with `knitr::read_chunk()` in a hidden chunk. It then shows each labelled section in a chunk with `#| eval: false`, with prose explaining what the section does and why. Until a script is divided into labelled sections, its page may show the whole script with `#| file:` and `eval: false`. Pages link to the script on GitHub and to the scripts it depends on.
+- **Never evaluate analysis code in the site.** Pages must render without SRTR data. `_quarto.yml` sets `eval: false` for every chunk; only the `read_chunk()` imports, the Setup page's chunks that attach packages and build its package table from text, and the Architecture page's chunk that reads `ARCHITECTURE.md` set `eval: true`. The rendered site therefore contains code and explanation only, never results. The one exception is the poster on the home page, which was already approved for public release.
 - **Rendering:** the site renders to `docs/`, which is not committed. `.github/workflows/publish.yml` renders it on every pull request as a check and, on each push to `master`, publishes it to the `gh-pages` branch, which GitHub Pages serves. Render locally to preview a change to a script's labels or a page's prose, but do not commit the output.
 - **New scripts:** when you add a script, add its page and its sidebar entry in `_quarto.yml` in the same pull request.
 - **Prose must match the code.** If a change alters what a section does, update that section's explanation in the same pull request.
@@ -213,7 +216,7 @@ Before opening a pull request, check the items below that apply to your change.
 - Is `ARCHITECTURE.md` current for the scripts and data flow this change touches?
 - Are the chunk labels unique, and does each script's Quarto page still find every label it uses?
 - Does every pipeline script have a Quarto page and a sidebar entry, and does the pull request's render check pass?
-- Are all site chunks `eval: false`?
+- Does any site chunk run analysis code? Only the chunks listed under "Quarto website" set `eval: true`.
 - Are new derived variables labelled?
 
 **Disclosure**
