@@ -1,0 +1,88 @@
+---
+title: "Study design and methods"
+format: html
+---
+
+::: {.callout-note}
+This page is being written. The headings below show what it will cover, with links to the parts of the analysis plan that govern each section.
+:::
+
+This page will explain, in plain language and without code, what this study chose and why. The general background it relies on is on [Methodological background](methodological_background.qmd). The formal specification is the [analysis plan](analysis-plan.qmd). Three kinds of note mark where the description stands:
+
+- **Specified in:** the section of the analysis plan that defines the method.
+- **Current code:** where the code does not yet do what the plan says, what it does now, with a link to the GitHub issue tracking the difference.
+- **Decision pending:** a choice the plan has not yet made, linked to its decision issue. A paragraph that starts with **Decision pending:** is highlighted in yellow automatically.
+
+## The question and the design in brief
+
+*Will cover:* the question, the matched cohort design, and what is estimated.
+
+**Specified in:** [§1 Objective](analysis-plan.qmd#1-objective), [§2 Design](analysis-plan.qmd#2-design).
+
+**Decision pending:** whether the comparison with liver-only recipients with HIV is part of this paper ([#19](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/19)).
+
+## Data and study period
+
+*Will cover:* the SRTR release and the transplant years included.
+
+**Specified in:** [§3 Data source](analysis-plan.qmd#3-data-source).
+
+## Who is included
+
+*Will cover:* how SLK recipients are identified, and who is excluded and why.
+
+**Specified in:** [§4 Study population](analysis-plan.qmd#4-study-population).
+
+**Decision pending:** the recipient age threshold ([#11](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/11)).
+
+## HIV status, era and time zero
+
+*Will cover:* how HIV status is classified from the two files, the pre- and post-DAA eras, and when follow-up starts.
+
+**Specified in:** [§5 Exposure, era, and time zero](analysis-plan.qmd#5-exposure-era-and-time-zero).
+
+**Decision pending:** HIV status when one file is positive and the other unknown ([#12](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/12)).
+
+## Matching
+
+*Will cover:* how HIV-negative controls are matched to each HIV-positive recipient, and how balance is checked.
+
+**Specified in:** [§6 Matching](analysis-plan.qmd#6-matching).
+
+**Decision pending:** the propensity score covariates, including recipient race ([#13](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/13)), and missing continuous covariates ([#14](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/14)).
+
+## Outcomes
+
+*Will cover:* all-cause mortality, death-censored kidney and liver graft failure, and hospital length of stay.
+
+**Specified in:** [§7 Outcomes](analysis-plan.qmd#7-outcomes).
+
+**Decision pending:** whether retransplantation or return to dialysis counts as graft failure ([#15](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/15)).
+
+## Analysis
+
+*Will cover:* the descriptive comparisons, survival curves, Cox models, effect modification by era, and length of stay.
+
+**Specified in:** [§8 Statistical analysis](analysis-plan.qmd#8-statistical-analysis).
+
+**Decision pending:** regression for length of stay ([#16](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/16)), adjusted era-specific models ([#17](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/17)), and sparse or zero events ([#20](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/20)).
+
+## Sensitivity analyses
+
+*Will cover:* the alternative analyses and why each is run.
+
+**Specified in:** [§9 Sensitivity analyses](analysis-plan.qmd#9-sensitivity-analyses).
+
+## Disclosure
+
+*Will cover:* how counts are protected before anything is published.
+
+**Specified in:** [§10 Disclosure control](analysis-plan.qmd#10-disclosure-control).
+
+**Decision pending:** the small-cell rule under the SRTR data use agreement ([#18](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/18)).
+
+## Limitations
+
+*Will cover:* what the registry data cannot answer, and how that shapes interpretation.
+
+**Specified in:** [§11 Limitations to address in reporting](analysis-plan.qmd#11-limitations-to-address-in-reporting).

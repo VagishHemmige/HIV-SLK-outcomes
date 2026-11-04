@@ -1,0 +1,24 @@
+---
+title: "Methodological background"
+format: html
+---
+
+::: {.callout-note}
+This page is being written. The headings below show what it will cover. It explains the data and methods in general terms; what this study chose is on [Study design and methods](study_methods.qmd).
+:::
+
+## The SRTR standard analysis files
+
+*Will cover:* what the Scientific Registry of Transplant Recipients collects, how its standard analysis files are organized, and how follow-up is reported.
+
+## Linking liver and kidney records
+
+*Will cover:* why a simultaneous liver–kidney transplant appears in both the liver and the kidney files, and how the two records are linked and reconciled.
+
+## Propensity score matching
+
+*Will cover:* how a propensity score is estimated, how matched controls are chosen, and how balance between groups is checked.
+
+## Time-to-event analysis in a matched cohort
+
+*Will cover:* Kaplan–Meier curves, Cox models with standard errors that account for matched sets, and death-censored graft failure.

@@ -1,0 +1,24 @@
+---
+title: "Clinical background"
+format: html
+---
+
+::: {.callout-note}
+This page is being written. The headings below show what it will cover.
+:::
+
+## HIV and end-stage liver and kidney disease
+
+*Will cover:* why people with HIV develop end-stage liver disease and kidney failure together, and the role of viral hepatitis co-infection.
+
+## Simultaneous liver–kidney transplantation
+
+*Will cover:* what SLK transplantation is and when it is offered instead of liver transplantation alone.
+
+## Transplantation in people with HIV
+
+*Will cover:* how outcomes after liver and kidney transplantation in people with HIV have been reported, and what is not yet known for SLK recipients.
+
+## Hepatitis C and the direct-acting antiviral era
+
+*Will cover:* how direct-acting antivirals changed outcomes for transplant recipients with hepatitis C, and why the study compares eras.
