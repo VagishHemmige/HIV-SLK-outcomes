@@ -14,12 +14,10 @@ bibliography: references.bib
 author:
   - name: Hannah Rosenthal
     affiliations:
-      - Albert Einstein College of Medicine
-    email: hannah.rosenthal@einsteinmed.edu
+      - Montefiore Medical Center
+    email: hrosenthal@montefiore.org
   - name: Vagish Hemmige
-    affiliations:
-      - Montefiore Medical Center/ Albert Einstein College of Medicine
-    email: vahemmig@montefiore.org
+    email: vagish.hemmige@gmail.com
 
 website:
   site-url: https://vagishhemmige.github.io/HIV-SLK-outcomes
