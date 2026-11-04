@@ -99,6 +99,61 @@
     ]
   },
   {
+    "objectID": "quarto/background.html",
+    "href": "quarto/background.html",
+    "title": "Clinical background",
+    "section": "",
+    "text": "Note\n\n\n\nThis page is being written. The headings below show what it will cover.",
+    "crumbs": [
+      "Background",
+      "Clinical background"
+    ]
+  },
+  {
+    "objectID": "quarto/background.html#hiv-and-end-stage-liver-and-kidney-disease",
+    "href": "quarto/background.html#hiv-and-end-stage-liver-and-kidney-disease",
+    "title": "Clinical background",
+    "section": "HIV and end-stage liver and kidney disease",
+    "text": "HIV and end-stage liver and kidney disease\nWill cover: why people with HIV develop end-stage liver disease and kidney failure together, and the role of viral hepatitis co-infection.",
+    "crumbs": [
+      "Background",
+      "Clinical background"
+    ]
+  },
+  {
+    "objectID": "quarto/background.html#simultaneous-liverkidney-transplantation",
+    "href": "quarto/background.html#simultaneous-liverkidney-transplantation",
+    "title": "Clinical background",
+    "section": "Simultaneous liver–kidney transplantation",
+    "text": "Simultaneous liver–kidney transplantation\nWill cover: what SLK transplantation is and when it is offered instead of liver transplantation alone.",
+    "crumbs": [
+      "Background",
+      "Clinical background"
+    ]
+  },
+  {
+    "objectID": "quarto/background.html#transplantation-in-people-with-hiv",
+    "href": "quarto/background.html#transplantation-in-people-with-hiv",
+    "title": "Clinical background",
+    "section": "Transplantation in people with HIV",
+    "text": "Transplantation in people with HIV\nWill cover: how outcomes after liver and kidney transplantation in people with HIV have been reported, and what is not yet known for SLK recipients.",
+    "crumbs": [
+      "Background",
+      "Clinical background"
+    ]
+  },
+  {
+    "objectID": "quarto/background.html#hepatitis-c-and-the-direct-acting-antiviral-era",
+    "href": "quarto/background.html#hepatitis-c-and-the-direct-acting-antiviral-era",
+    "title": "Clinical background",
+    "section": "Hepatitis C and the direct-acting antiviral era",
+    "text": "Hepatitis C and the direct-acting antiviral era\nWill cover: how direct-acting antivirals changed outcomes for transplant recipients with hepatitis C, and why the study compares eras.",
+    "crumbs": [
+      "Background",
+      "Clinical background"
+    ]
+  },
+  {
     "objectID": "quarto/setup.html",
     "href": "quarto/setup.html",
     "title": "Setup",
@@ -123,201 +178,53 @@
     ]
   },
   {
-    "objectID": "quarto/setup.html#other-portions-of-the-analysis",
-    "href": "quarto/setup.html#other-portions-of-the-analysis",
-    "title": "Setup",
-    "section": "Other portions of the analysis",
-    "text": "Other portions of the analysis\n\nAbout: methods, assumptions, and disclosures",
-    "crumbs": [
-      "Code",
-      "Setup and helper functions",
-      "Setup"
-    ]
-  },
-  {
-    "objectID": "quarto/functions.html",
-    "href": "quarto/functions.html",
-    "title": "Functions",
+    "objectID": "quarto/about.html",
+    "href": "quarto/about.html",
+    "title": "About",
     "section": "",
-    "text": "This script defines the helper functions used across the analysis: harmonizing the liver and kidney copies of a variable, recoding SRTR codes into labels, and turning Cox models into tables of hazard ratios.",
+    "text": "This study compares mortality and graft outcomes after simultaneous liver–kidney (SLK) transplantation between recipients with and without HIV, using Scientific Registry of Transplant Recipients (SRTR) data. Study design and methods explains how.\nThe analysis is preliminary and not for citation. Early results were presented as a poster at the NY-NJ Center for AIDS Research 2026 regional conference, shown on the home page; the manuscript is in preparation.\n\nHannah Rosenthal\nChristina Tsai\nJonathan Mamber Czeresnia\nVagish Hemmige\nClara Tow\n\nScientific decisions are made by Vagish Hemmige. Open decisions are marked in the analysis plan and listed in GitHub Issues.",
     "crumbs": [
-      "Code",
-      "Setup and helper functions",
-      "Functions"
+      "About"
     ]
   },
   {
-    "objectID": "quarto/functions.html#the-script",
-    "href": "quarto/functions.html#the-script",
-    "title": "Functions",
-    "section": "The script",
-    "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each function will get its own explanation here.\n\n\nClick to show/hide R Code\n#Functions\n\n\n#From the combining_liver_kidney_variables.R script\ncombine_li_ki_consistent &lt;- function(li, ki,\n                                     pos_codes = c(\"Y\",\"P\",\"1\"),\n                                     neg_codes = c(\"N\",\"0\"),\n                                     unknown_codes = c(\"U\",\"ND\",\"Unknown\",\"\", NA),\n                                     out_pos = NULL,\n                                     out_neg = NULL,\n                                     unknown_out = NA_character_,\n                                     discordant_out = NA_character_) {\n  \n  li_chr &lt;- stringr::str_trim(as.character(li))\n  ki_chr &lt;- stringr::str_trim(as.character(ki))\n  \n  # Clean unknowns\n  li_clean &lt;- ifelse(li_chr %in% unknown_codes, NA_character_, li_chr)\n  ki_clean &lt;- ifelse(ki_chr %in% unknown_codes, NA_character_, ki_chr)\n  \n  if (is.null(out_pos)) out_pos &lt;- pos_codes[1]\n  if (is.null(out_neg)) out_neg &lt;- neg_codes[1]\n  \n  discordant &lt;- (!is.na(li_clean) & !is.na(ki_clean)) &\n    ((li_clean %in% pos_codes & ki_clean %in% neg_codes) |\n       (li_clean %in% neg_codes & ki_clean %in% pos_codes))\n  \n  dplyr::case_when(\n    # Explicit P vs N conflict\n    discordant ~ discordant_out,\n    \n    # Positive if P + (P or NA)\n    (li_clean %in% pos_codes & (is.na(ki_clean) | ki_clean %in% pos_codes)) ~ out_pos,\n    (ki_clean %in% pos_codes & (is.na(li_clean) | li_clean %in% pos_codes)) ~ out_pos,\n    \n    # Negative if N + N OR N + NA\n    (li_clean %in% neg_codes & (is.na(ki_clean) | ki_clean %in% neg_codes)) ~ out_neg,\n    (ki_clean %in% neg_codes & (is.na(li_clean) | li_clean %in% neg_codes)) ~ out_neg,\n    \n    # Everything else\n    TRUE ~ unknown_out\n  )\n}\n\n\n\n# --- helper recoders ---\nrecode_sex_FM &lt;- function(x) {\n  x &lt;- as.character(x)\n  dplyr::recode(x,\n                \"F\" = \"Female\",\n                \"M\" = \"Male\",\n                .default = x\n  )\n}\n\nrecode_YNU_to_words &lt;- function(x) {\n  x &lt;- as.character(x)\n  # combine U + Unknown first\n  x &lt;- dplyr::recode(x, \"Unknown\" = \"U\", .default = x)\n  dplyr::recode(x,\n                \"Y\" = \"Yes\",\n                \"N\" = \"No\",\n                \"U\" = \"Unknown\",\n                .default = x\n  )\n}\n\n\n# SRTR-style donor race codes seen in your table:\ncollapse_donor_race &lt;- function(x) {\n  x &lt;- as.character(x)\n  case_when(\n    is.na(x) ~ \"Missing\",\n    x %in% c(\"8\", \"White\", \"WHITE\") ~ \"White\",\n    x %in% c(\"16\", \"Black or African American\", \"BLACK\") ~ \"Black\",\n    x %in% c(\"2000\", \"Hispanic/Latino\", \"HISPANIC\") ~ \"Hispanic/Latino\",\n    # everything else (Asian, AIAN, NHPI, etc.)\n    TRUE ~ \"Other\"\n  )\n}\n\n\n#Converts a vector of labels into a list object for the gtsummary package\nmake_gtsummary_labels &lt;- function(named_vec) {\n  lapply(names(named_vec), function(v) {\n    as.formula(paste0(v, \" ~ \", shQuote(unname(named_vec[[v]]))))\n  })\n}\n\n\n# Helper: convert NA / \"\" / \" \" to \"Missing\" and return a factor\nmake_missing_level &lt;- function(x, missing_label = \"Missing\") {\n  x &lt;- as.character(x)\n  x &lt;- trimws(x)\n  x[x == \"\"] &lt;- NA\n  x[is.na(x)] &lt;- missing_label\n  factor(x)\n}\n\n#fix variable levels\nrecode_YNU &lt;- function(x) {\n  recode(x,\n         \"Y\" = \"Yes\",\n         \"N\" = \"No\",\n         \"U\" = \"Unknown\",\n         .default = as.character(x))\n}\n\nrecode_PNU &lt;- function(x) {\n  recode(x,\n         \"P\" = \"Positive\",\n         \"N\" = \"Negative\",\n         \"U\" = \"Unknown\",\n         .default = as.character(x))\n}\n\n\n#Table-creating functions\n\n#make a \"make table\" function\nmk_tbl &lt;- function(fit) {\n  tbl_regression(\n    fit,\n    exponentiate = TRUE\n  ) %&gt;%\n    bold_labels() %&gt;%\n    italicize_levels()\n}\n\n#make clean labels function\nclean_labels &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          label = case_when(\n                            label == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n                            label == \"ERAPost-DAA\" ~ \"Post-DAA era (vs Pre-DAA)\",\n                            label == \"HIV_POSITIVE:ERAPost-DAA\" ~ \"HIV × Post-DAA interaction\",\n                            TRUE ~ label\n                          )\n                        )\n    )\n}\n\n\n\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Helper: extract robust HR/CI/p for HIV_POSITIVE\n# Uses vcov(fit) -&gt; robust sandwich when you fit with robust=TRUE + cluster=subclass\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\nextract_hiv_row &lt;- function(fit, label, ne = FALSE) {\n  if (ne) {\n    return(tibble(\n      Outcome = label,\n      `HR (95% CI)` = \"NE\",\n      p = \"\"\n    ))\n  }\n  \n  term &lt;- \"HIV_POSITIVE\"\n  b &lt;- unname(coef(fit)[term])\n  \n  # robust SE from vcov (should be robust due to robust=TRUE + cluster=subclass)\n  V &lt;- vcov(fit)\n  se &lt;- sqrt(unname(V[term, term]))\n  \n  z  &lt;- b / se\n  p  &lt;- 2 * pnorm(-abs(z))\n  \n  hr &lt;- exp(b)\n  lo &lt;- exp(b - 1.96 * se)\n  hi &lt;- exp(b + 1.96 * se)\n  \n  p_fmt &lt;- ifelse(is.na(p), \"\",\n                  ifelse(p &lt; 0.01, \"&lt;0.01\", sprintf(\"%.2f\", p)))\n  \n  tibble(\n    Outcome = label,\n    `HR (95% CI)` = sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi),\n    p = p_fmt\n  )\n}\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Build the mega results table as a dataframe\n# Assumes you already created these Cox fits:\n# cox_main, cox_pre_unadj, cox_post_unadj\n# cox_kidney, cox_kidney_pre, cox_kidney_post\n# cox_liver, cox_liver_pre, cox_liver_post\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\nmega_df &lt;- bind_rows(\n  # Mortality block (overall/pre/post)\n  extract_hiv_row(cox_main,      \"Overall mortality — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_pre_unadj, \"Overall mortality — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_post_unadj,\"Overall mortality — Post-DAA\")%&gt;% mutate(ERA = \"Post-DAA\"),\n  \n  # Kidney graft failure block with event counts in label\n  extract_hiv_row(cox_kidney,      \"Kidney graft failure (28 events; 6 HIV+) — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_kidney_pre,  \"Kidney graft failure (28 events; 6 HIV+) — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_kidney_post, \"Kidney graft failure (28 events; 6 HIV+) — Post-DAA\")%&gt;% mutate(ERA = \"Post-DAA\"),\n  \n  # Liver graft failure block with Post-DAA marked NE\n  extract_hiv_row(cox_liver,     \"Liver graft failure (16 events; 2 HIV+) — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_liver_pre, \"Liver graft failure (16 events; 2 HIV+) — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_liver_post,\"Liver graft failure (16 events; 2 HIV+) — Post-DAA\", ne = TRUE) %&gt;% mutate(ERA = \"Post-DAA\")\n) %&gt;%\n  # Keep just the outcome group name (without the era suffix) and make a wide table\n  mutate(\n    OutcomeGroup = sub(\" — (Overall|Pre-DAA|Post-DAA)$\", \"\", Outcome)\n  ) %&gt;%\n  select(OutcomeGroup, ERA, `HR (95% CI)`, p) %&gt;%\n  tidyr::pivot_wider(\n    names_from = ERA,\n    values_from = c(`HR (95% CI)`, p),\n    names_glue = \"{.value} ({ERA})\"\n  ) %&gt;%\n  rename(Outcome = OutcomeGroup)\n\n\n\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Render with gt and save\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\ngt_tbl &lt;- mega_df %&gt;%\n  gt(rowname_col = \"Outcome\") %&gt;%\n  tab_header(\n    title = md(\"**Cox regression results (matched cohort), overall and stratified by DAA era**\"),\n    subtitle = md(\"HIV-positive vs HIV-negative; robust SEs clustered by matched set (subclass)\")\n  ) %&gt;%\n  tab_source_note(\n    md(\"Kidney graft failure: 28 total events (6 HIV+). Liver graft failure: 16 total events (2 HIV+). Post-DAA liver graft failure: **NE** = not estimable due to sparse/zero events (quasi separation).\")\n  ) %&gt;%\n  tab_options(\n    table.width = pct(80),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngt_tbl\n\ngtsave(gt_tbl, filename = \"cox_mega_table_poster.png\")\n\n#adding interaction term to table\ncox_mort_int &lt;- coxph(\n  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\ncox_kidney_int &lt;- coxph(\n  Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\ncox_liver_int &lt;- coxph(\n  Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\nlibrary(dplyr)\nlibrary(survival)\n\nfmt_p &lt;- function(p) {\n  if (is.na(p)) return(NA_character_)\n  if (p &lt; 0.01) return(\"&lt;0.01\")\n  sprintf(\"%.2f\", p)\n}\n\nfmt_hrci &lt;- function(hr, lo, hi) {\n  sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi)\n}\n\n\n\nextract_interaction &lt;- function(fit, outcome_label,\n                                term = \"HIV_POSITIVE:ERAPost-DAA\") {\n  \n  # ---- FORCE NE for liver graft failure (sparse post-DAA events) ----\n  if (outcome_label == \"Liver graft failure (16 events; 2 HIV+)\") {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = \"NE\",\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  # ---- If interaction term not present ----\n  if (!term %in% names(coef(fit))) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  \n  \n  b &lt;- unname(coef(fit)[term])\n  \n  V &lt;- tryCatch(vcov(fit), error = function(e) NULL)\n  if (is.null(V) || !all(term %in% rownames(V))) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  se &lt;- sqrt(unname(V[term, term]))\n  \n  # ---- Guard against infinite / zero / NA SE ----\n  if (!is.finite(se) || is.na(se) || se &lt;= 0) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  # ---- Compute HR, CI, p ----\n  hr &lt;- exp(b)\n  lo &lt;- exp(b - 1.96 * se)\n  hi &lt;- exp(b + 1.96 * se)\n  p  &lt;- 2 * pnorm(-abs(b / se))\n  \n  tibble(\n    Outcome = outcome_label,\n    `Interaction HR (95% CI)` = sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi),\n    `Interaction p` = ifelse(p &lt; 0.01, \"&lt;0.01\", sprintf(\"%.2f\", p))\n  )\n}\n\n#make table for LOS\nextract_robust &lt;- function(fit, cluster, model_label,\n                           exponentiate = TRUE,\n                           keep_terms = NULL) {\n  \n  ct &lt;- coeftest(fit, vcov = vcovCL(fit, cluster = cluster))\n  \n  df &lt;- tibble(\n    Model    = model_label,\n    term     = rownames(ct),\n    estimate = as.numeric(ct[, 1]),\n    se       = as.numeric(ct[, 2]),\n    p.value  = as.numeric(ct[, ncol(ct)])\n  )\n  \n  if (!is.null(keep_terms)) df &lt;- df %&gt;% dplyr::filter(term %in% keep_terms)\n  \n  df &lt;- df %&gt;%\n    dplyr::mutate(\n      conf.low  = estimate - 1.96 * se,\n      conf.high = estimate + 1.96 * se\n    )\n  \n  if (exponentiate) {\n    df &lt;- df %&gt;%\n      dplyr::mutate(\n        est = exp(estimate),\n        lo  = exp(conf.low),\n        hi  = exp(conf.high),\n        pct = (est - 1) * 100\n      )\n  } else {\n    df &lt;- df %&gt;%\n      dplyr::mutate(\n        est = estimate,\n        lo  = conf.low,\n        hi  = conf.high,\n        pct = NA_real_\n      )\n  }\n  \n  df %&gt;%\n    dplyr::mutate(\n      Predictor = dplyr::case_when(\n        term == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n        term == \"ERAPost-DAA\"  ~ \"Post-DAA era (vs Pre-DAA)\",\n        term == \"(Intercept)\" ~ \"Intercept\",\n        TRUE ~ term\n      ),\n      `Effect (95% CI)` = sprintf(\"%.2f (%.2f, %.2f)\", est, lo, hi),\n      `Approx. % diff`  = ifelse(is.na(pct), NA_character_, sprintf(\"%+.1f%%\", pct)),\n      `p-value` = dplyr::case_when(\n        is.na(p.value) ~ NA_character_,\n        p.value &lt; 0.001 ~ \"&lt;0.001\",\n        TRUE ~ sprintf(\"%.3f\", p.value)\n      )\n    ) %&gt;%\n    dplyr::select(Model, Predictor, `Effect (95% CI)`, `Approx. % diff`, `p-value`)\n}\n\n\n# --- helper: format one cox model nicely ---\n\nformat_cox &lt;- function(fit, model_name = \"Model\") {\n  s &lt;- summary(fit)\n  n &lt;- s$n\n  events &lt;- s$nevent\n  \n  # broom table (robust SEs are already baked into coef(summary(fit)) when robust=TRUE)\n  out &lt;- broom::tidy(fit, exponentiate = TRUE, conf.int = TRUE) %&gt;%\n    mutate(\n      model = model_name,\n      n = n,\n      events = events,\n      # nicer labels\n      term = case_when(\n        term == \"HIV_POSITIVE\" ~ \"HIV positive (vs negative)\",\n        term == \"ERAPost-DAA\" ~ \"Post-DAA (vs Pre-DAA)\",\n        term == \"HIV_POSITIVE:ERAPost-DAA\" ~ \"Interaction: HIV × Post-DAA\",\n        str_detect(term, \"^REC_HBV_SURF_ANTIGEN_COMB\") ~ str_replace(term, \"^REC_HBV_SURF_ANTIGEN_COMB\", \"HBsAg: \"),\n        str_detect(term, \"^REC_CMV_COMBINED\") ~ str_replace(term, \"^REC_CMV_COMBINED\", \"CMV: \"),\n        TRUE ~ term\n      ),\n      hr_ci = sprintf(\"%.2f (%.2f–%.2f)\", estimate, conf.low, conf.high),\n      p_fmt = ifelse(p.value &lt; 0.001, \"&lt;0.001\", sprintf(\"%.3f\", p.value))\n    ) %&gt;%\n    select(model, n, events, term, hr_ci, p_fmt)\n  \n  out\n}\n\n# --- helper: capture warnings while fitting (optional) ---\nfit_cox_capture_warning &lt;- function(expr) {\n  w &lt;- NULL\n  fit &lt;- withCallingHandlers(\n    expr,\n    warning = function(m) {\n      w &lt;&lt;- c(w, conditionMessage(m))\n      invokeRestart(\"muffleWarning\")\n    }\n  )\n  list(fit = fit, warnings = w)\n}",
-    "crumbs": [
-      "Code",
-      "Setup and helper functions",
-      "Functions"
-    ]
-  },
-  {
-    "objectID": "quarto/repository-blueprint.html",
-    "href": "quarto/repository-blueprint.html",
-    "title": "",
+    "objectID": "quarto/about.html#the-study",
+    "href": "quarto/about.html#the-study",
+    "title": "About",
     "section": "",
-    "text": "Project documentsRepository blueprint Code",
+    "text": "This study compares mortality and graft outcomes after simultaneous liver–kidney (SLK) transplantation between recipients with and without HIV, using Scientific Registry of Transplant Recipients (SRTR) data. Study design and methods explains how.\nThe analysis is preliminary and not for citation. Early results were presented as a poster at the NY-NJ Center for AIDS Research 2026 regional conference, shown on the home page; the manuscript is in preparation.\n\nHannah Rosenthal\nChristina Tsai\nJonathan Mamber Czeresnia\nVagish Hemmige\nClara Tow\n\nScientific decisions are made by Vagish Hemmige. Open decisions are marked in the analysis plan and listed in GitHub Issues.",
     "crumbs": [
-      "Project documents",
-      "Repository blueprint"
+      "About"
     ]
   },
   {
-    "objectID": "quarto/repository-blueprint.html#analytical-scripts",
-    "href": "quarto/repository-blueprint.html#analytical-scripts",
-    "title": "",
-    "section": "Analytical scripts",
-    "text": "Analytical scripts\n\nR/main.R sources definitive scripts in dependency order.\nTypical workflow: setup → cohort construction → processing → modeling → outputs.\nStudy-specific scripts may be grouped into subdirectories by analytical stage.\nR/tables.R and R/figures.R may generate outputs directly or orchestrate specialized scripts.",
+    "objectID": "quarto/about.html#this-repository",
+    "href": "quarto/about.html#this-repository",
+    "title": "About",
+    "section": "This repository",
+    "text": "This repository\nR/main.R runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the sRtr package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.\nContributions follow the rules in AGENTS.md; known issues and open decisions are tracked in Issues. To comment on any page, highlight the text and use the Comment button; comments are filed as GitHub issues.",
     "crumbs": [
-      "Project documents",
-      "Repository blueprint"
+      "About"
     ]
   },
   {
-    "objectID": "quarto/repository-blueprint.html#documentation",
-    "href": "quarto/repository-blueprint.html#documentation",
-    "title": "",
-    "section": "Documentation",
-    "text": "Documentation\n\nDocument definitive analytical scripts with explanatory Quarto pages; exploratory scripts need not have pages.\nUse Cryptococcus-cost-analysis as an example for Quarto supporting files, chunk imports, callouts, and formatting—not scientific methods.\nQuarto source and rendered output locations may vary by project.",
+    "objectID": "quarto/about.html#how-this-website-was-created",
+    "href": "quarto/about.html#how-this-website-was-created",
+    "title": "About",
+    "section": "How this website was created",
+    "text": "How this website was created\nThe site is built with Quarto from the analysis scripts themselves. Each code page shows its script from R/ with an explanation; until a script is divided into labelled sections, its page shows the script whole. The site never runs the analysis, so it is built without the restricted SRTR data. A GitHub Actions workflow renders and publishes it whenever master changes.\nThe repository is maintained with the R Analysis Workflow plugin for AI coding assistants, written by Vagish Hemmige. The plugin provides the repository layout, the conventions for the analysis plan and AGENTS.md, and the format of these pages. AI assistants may help draft and review code and documentation under the rules in AGENTS.md: they work only with code, documentation and synthetic data, never with SRTR data, every change reaches master through a pull request a person reviews and merges, and every scientific decision is made by the investigator and recorded in a GitHub issue.\nFour documents describe the project. In short: the plan is the scientific intent, the architecture is the workflow as implemented, and AGENTS.md holds the rules for working together.\n\nAnalysis plan: what the analysis is meant to do, and why. The question, the population, the exposure, matching, the outcomes, the statistical methods, and the open decisions. Code implements it and does not redefine it.\nArchitecture: how the code does it. The scripts, the order they run in, what each needs and produces, and how data flow between them.\nAGENTS.md: how people and AI assistants work on the project. Rules for restricted data, coding, checks, proposing changes and getting a person’s approval.\nRepository blueprint: the layout every project of this kind starts from, which the architecture document then describes as built.",
     "crumbs": [
-      "Project documents",
-      "Repository blueprint"
+      "About"
     ]
   },
   {
-    "objectID": "quarto/repository-blueprint.html#outputs-and-version-control",
-    "href": "quarto/repository-blueprint.html#outputs-and-version-control",
-    "title": "",
-    "section": "Outputs and version control",
-    "text": "Outputs and version control\n\nTrack approved, nonrestricted outputs when useful for publication; otherwise retain them locally and exclude them from Git.\n.gitignore: Exclude restricted data, credentials, caches, temporary files, and generated outputs unless intentionally tracked (e.g., .Rproj.user/, .Rhistory, .RData, .httr-oauth, .quarto/, cache/, figures/, tables/, *.quarto_ipynb); verify exclusions cover actual output paths without hiding necessary source or reference files.",
+    "objectID": "quarto/about.html#pages",
+    "href": "quarto/about.html#pages",
+    "title": "About",
+    "section": "Pages",
+    "text": "Pages\n\nClinical background: HIV, end-stage liver and kidney disease, SLK transplantation and the DAA era (being written).\nMethodological background: the SRTR files, linking liver and kidney records, matching and survival analysis, in general terms (being written).\nStudy design and methods: what this study chose, linked to the plan and its open decisions (being written).\nSetup: packages and shared constants.\nFunctions: helper functions, including harmonizing liver and kidney records.\nTables and Figures: building and exporting the outputs.",
     "crumbs": [
-      "Project documents",
-      "Repository blueprint"
-    ]
-  },
-  {
-    "objectID": "quarto/tables.html",
-    "href": "quarto/tables.html",
-    "title": "Tables",
-    "section": "",
-    "text": "This script builds the tables for the poster and manuscript from the matched cohort: the recipient and donor characteristics, and the hazard ratios for mortality and for kidney and liver graft failure, overall and by DAA era.",
-    "crumbs": [
-      "Code",
-      "Tables and figures",
-      "Tables"
-    ]
-  },
-  {
-    "objectID": "quarto/tables.html#the-script",
-    "href": "quarto/tables.html#the-script",
-    "title": "Tables",
-    "section": "The script",
-    "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each table will get its own explanation here.\n\n\nClick to show/hide R Code\n# Making condensed table for poster\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    # Sex labels\n    DON_GENDER = recode_sex_FM(DON_GENDER),\n    CAN_GENDER = recode_sex_FM(CAN_GENDER),\n    \n    # Donor race collapsed to match recipient race buckets\n    DON_RACE_collapsed = collapse_donor_race(DON_RACE),\n  ) %&gt;%\n  mutate(\n    # nice ordering for tables\n    DON_GENDER = factor(DON_GENDER, levels = c(\"Female\", \"Male\")),\n    CAN_GENDER = factor(CAN_GENDER, levels = c(\"Female\", \"Male\")),\n    \n    DON_RACE_collapsed = factor(DON_RACE_collapsed,\n                                levels = c(\"White\", \"Black\", \"Hispanic/Latino\", \"Other\", \"Missing\"))\n  ) %&gt;%\n  set_variable_labels(\n    DON_GENDER = \"Donor sex\",\n    DON_RACE_collapsed = \"Donor race\",\n    DON_ANTI_HIV_recode = \"Donor anti-HIV antibody\",\n    \n    CAN_GENDER = \"Recipient sex\",\n    CAN_RACE_collapsed = \"Recipient race\",\n    \n    REC_HBV_ANTIBODY_COMB = \"HBV core antibody\",\n    REC_HBV_SURF_ANTIGEN_COMB = \"HBV surface antigen\",\n    REC_HCV_STAT_COMB = \"HCV serology\",\n    REC_CMV_COMBINED = \"CMV serology\"\n  )\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    # ---- serologies: Unknown -&gt; NA ----\n    REC_HBV_ANTIBODY_COMB     = na_if(REC_HBV_ANTIBODY_COMB, \"Unknown\"),\n    REC_HBV_SURF_ANTIGEN_COMB = na_if(REC_HBV_SURF_ANTIGEN_COMB, \"Unknown\"),\n    REC_HCV_STAT_COMB         = na_if(REC_HCV_STAT_COMB, \"Unknown\"),\n    REC_CMV_COMBINED          = na_if(REC_CMV_COMBINED, \"Unknown\"),\n    \n    # ---- donor anti-HIV: Unknown -&gt; NA ----\n    DON_ANTI_HIV_recode = na_if(DON_ANTI_HIV_recode, \"Unknown\"),\n    \n    # ---- drop unused factor levels ----\n    across(where(is.factor), fct_drop)\n  )\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    DON_RACE_collapsed = case_when(\n      DON_RACE %in% c(\"8\", \"White\") ~ \"White\",\n      DON_RACE %in% c(\"16\", \"Black or African American\") ~ \"Black\",\n      DON_RACE %in% c(\"2000\", \"Hispanic/Latino\") ~ \"Hispanic/Latino\",\n      is.na(DON_RACE) ~ NA_character_,\n      TRUE ~ \"Other\"\n    ),\n    DON_RACE_collapsed = factor(\n      DON_RACE_collapsed,\n      levels = c(\"White\", \"Black\", \"Hispanic/Latino\", \"Other\")\n    )\n  )\n\n\nshort_var_list&lt;-c(\"DON_AGE\",\n                  \"DON_GENDER\",\n                  \"CAN_BMI_clean\",\n                  \"REC_AGE_YEARS\",\n                  \"CAN_GENDER\",\n                  \"CAN_RACE_collapsed\",\n                  \"TRANSPLANT_REASON_LI\",\n                  \"TRANSPLANT_REASON_KI_COLLAPSED\",\n                  \"REC_HBV_SURF_ANTIGEN_COMB\",\n                  \"REC_HCV_STAT_COMB\",\n                  \"REC_CMV_COMBINED\",\n                  \"MELD_NUM_Last\"\n)\n\n\n\n#condensed table\ntbl_dat2 &lt;- matched_df %&gt;%\n  dplyr::select(\n    HIV_POSITIVE,\n    all_of(short_var_list)\n  )\n\n# \"self-healing\" labels: only keep labels for vars that exist in tbl_dat\nlabel_list_ok &lt;- label_list[names(label_list) %in% names(tbl_dat)]\n\n\ntab2 &lt;-\n  tbl_dat2 %&gt;%\n  gtsummary::tbl_summary(\n    by = HIV_POSITIVE,\n    missing = \"ifany\",\n    statistic = list(\n      gtsummary::all_continuous() ~ \"{median} ({p25}, {p75})\",\n      gtsummary::all_categorical() ~ \"{n} ({p}%)\"\n    ),\n    label = label_list_ok\n  ) %&gt;%\n  gtsummary::add_p(\n    test = gtsummary::all_categorical() ~ \"fisher.test\",\n    test.args = gtsummary::all_categorical() ~ list(simulate.p.value = TRUE)\n  ) %&gt;%\n  as_gt() %&gt;%\n  gt::cols_label(\n    stat_1 = \"Negative/Unknown\",\n    stat_2 = \"Positive\"\n  ) %&gt;%\n  gt::tab_header(\n    title = \"Characteristics of HIV-positive and HIV-negative SLK recipients (matched cohort)\"\n  )\n\ngt::gtsave(tab2, \"tables/matched_table_condensed_2.png\")\n\n\n\n\n#make tables\n# Kidney graft failure events\nwith(matched_df, table(KI_EVENT, useNA = \"ifany\"))\n# Liver graft failure events\nwith(matched_df, table(LI_EVENT, useNA = \"ifany\"))\n\n# By era (optional)\nwith(matched_df, table(HIV_POSITIVE, KI_EVENT))\nwith(matched_df, table(HIV_POSITIVE, LI_EVENT))\n\n\n#make kidney failure tables\n#clean labels\nt_kid_unadj &lt;- clean_labels(mk_tbl(cox_kidney))\nt_kid_era   &lt;- clean_labels(mk_tbl(cox_kidney_era))\nt_kid_int   &lt;- clean_labels(mk_tbl(cox_kidney_int))\nt_kid_pre   &lt;- clean_labels(mk_tbl(cox_kidney_pre))\nt_kid_post  &lt;- clean_labels(mk_tbl(cox_kidney_post))\n\n#create table\ntbl_kidney_gf &lt;-\n  tbl_merge(\n    tbls = list(\n      t_kid_unadj,\n      t_kid_era,\n      t_kid_int,\n      t_kid_pre,\n      t_kid_post\n    ),\n    tab_spanner = c(\n      \"**Unadjusted**\",\n      \"**Adjusted for ERA**\",\n      \"**HIV × ERA**\",\n      \"**Pre-DAA only**\",\n      \"**Post-DAA only**\"\n    )\n  ) %&gt;%\n  modify_caption(\"**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~ \"Robust standard errors clustered by matched set (subclass).\"\n  )\n\ntbl_kidney_gf\n\n#change table orientation\ntbl_kidney_gf_long &lt;- tbl_stack(\n  tbls = list(t_kid_unadj, t_kid_era, t_kid_int, t_kid_pre, t_kid_post),\n  group_header = c(\n    \"Unadjusted\",\n    \"Adjusted for ERA\",\n    \"HIV × ERA interaction\",\n    \"Pre-DAA only\",\n    \"Post-DAA only\"\n  )\n) %&gt;%\n  modify_caption(\"**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(everything() ~ \"Robust standard errors clustered by matched set (subclass).\")\n\ntbl_kidney_gf_long\n\n\n#make liver tables\nt_liv_unadj &lt;- clean_labels(mk_tbl(cox_liver))\nt_liv_era   &lt;- clean_labels(mk_tbl(cox_liver_era))\nt_liv_pre   &lt;- clean_labels(mk_tbl(cox_liver_pre))\nt_liv_post  &lt;- clean_labels(mk_tbl(cox_liver_post))\n\ntbl_liver_gf &lt;-\n  tbl_merge(\n    tbls = list(\n      t_liv_unadj,\n      t_liv_era,\n      t_liv_pre,\n      t_liv_post\n    ),\n    tab_spanner = c(\n      \"**Unadjusted**\",\n      \"**Adjusted for ERA**\",\n      \"**Pre-DAA only**\",\n      \"**Post-DAA only**\"\n    )\n  ) %&gt;%\n  modify_caption(\"**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~\n      \"Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events.\"\n  )\n\ntbl_liver_gf\n\n#change table orientation\ntbl_liver_gf_long &lt;- tbl_stack(\n  tbls = list(t_liv_unadj, t_liv_era, t_liv_pre, t_liv_post),\n  group_header = c(\n    \"Unadjusted\",\n    \"Adjusted for ERA\",\n    \"Pre-DAA only\",\n    \"Post-DAA only\"\n  )\n) %&gt;%\n  modify_caption(\"**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~ \"Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events.\"\n  )\n\ntbl_liver_gf_long\n\n```\n\ntable for poster\n```{r making tables for poster}\nlibrary(gtsummary)\nlibrary(survival)\nlibrary(gt)\n\n# -----------------------------\n# 0) Helper functions\n# -----------------------------\nmk_tbl &lt;- function(fit) {\n  tbl_regression(\n    fit,\n    exponentiate = TRUE,\n    estimate_fun = ~ style_sigfig(.x, digits = 2),   # keeps model output tidy\n    pvalue_fun   = ~ style_pvalue(.x, digits = 2)\n  ) %&gt;%\n    bold_labels()\n}\n\nclean_labels &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          label = case_when(\n                            label == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n                            TRUE ~ label\n                          )\n                        )\n    )\n}\n\n# Create HR (95% CI) with 2 decimals and keep p-value\nshrink_one &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        # keep only the HIV row\n                        filter(term == \"HIV_POSITIVE\") %&gt;%\n                        mutate(\n                          est_num  = suppressWarnings(as.numeric(estimate)),\n                          low_num  = suppressWarnings(as.numeric(conf.low)),\n                          high_num = suppressWarnings(as.numeric(conf.high)),\n                          \n                          hr_ci = case_when(\n                            !is.na(est_num) ~ sprintf(\"%.2f (%.2f–%.2f)\", est_num, low_num, high_num),\n                            TRUE ~ NA_character_\n                          ),\n                          \n                          p_fmt = case_when(\n                            is.na(p.value) ~ NA_character_,\n                            p.value &lt; 0.01 ~ \"&lt;0.01\",\n                            TRUE ~ sprintf(\"%.2f\", p.value)\n                          )\n                        ) %&gt;%\n                        select(label, hr_ci, p_fmt)\n    ) %&gt;%\n    modify_header(\n      hr_ci ~ \"**HR (95% CI)**\",\n      p_fmt ~ \"**p**\"\n    )\n}\n\n\n# Mark Post-DAA liver graft failure as not estimable (NE)\nmark_ne &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          hr_ci = \"NE\",\n                          p_fmt = NA_character_\n                        )\n    )\n}\n\n# -----------------------------\n# 1) Build SMALL tables for each model (overall / pre / post) per outcome\n# -----------------------------\n\n# ---- Mortality ----\nmort_overall &lt;- clean_labels(mk_tbl(cox_main))       %&gt;% shrink_one()\nmort_pre     &lt;- clean_labels(mk_tbl(cox_pre_unadj))  %&gt;% shrink_one()\nmort_post    &lt;- clean_labels(mk_tbl(cox_post_unadj)) %&gt;% shrink_one()\n\ntbl_mort_block &lt;- tbl_merge(\n  tbls = list(mort_overall, mort_pre, mort_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# ---- Kidney graft failure ----\nkid_overall &lt;- clean_labels(mk_tbl(cox_kidney))      %&gt;% shrink_one()\nkid_pre     &lt;- clean_labels(mk_tbl(cox_kidney_pre))  %&gt;% shrink_one()\nkid_post    &lt;- clean_labels(mk_tbl(cox_kidney_post)) %&gt;% shrink_one()\n\ntbl_kid_block &lt;- tbl_merge(\n  tbls = list(kid_overall, kid_pre, kid_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# ---- Liver graft failure ----\nliv_overall &lt;- clean_labels(mk_tbl(cox_liver))      %&gt;% shrink_one()\nliv_pre     &lt;- clean_labels(mk_tbl(cox_liver_pre))  %&gt;% shrink_one()\n\n# Post-DAA liver: quasi separation -&gt; NE\nliv_post &lt;- clean_labels(mk_tbl(cox_liver_post)) %&gt;%\n  shrink_one() %&gt;%\n  mark_ne()\n\ntbl_liv_block &lt;- tbl_merge(\n  tbls = list(liv_overall, liv_pre, liv_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# -----------------------------\n# 2) Stack into the MEGA table + caption/footnote\n# -----------------------------\ntbl_mega &lt;- tbl_stack(\n  tbls = list(tbl_mort_block, tbl_kid_block, tbl_liv_block),\n  group_header = c(\n    \"Overall mortality\",\n    \"Kidney graft failure (28 events; 6 HIV+)\",\n    \"Liver graft failure (16 events; 2 HIV+)\"\n  )\n) %&gt;%\n  modify_caption(\"**Cox regression results (matched cohort), overall and stratified by DAA era**\") %&gt;%\n  modify_footnote(\n    everything() ~ paste(\n      \"Robust SEs clustered by matched set (subclass).\",\n      \"Kidney graft failure: 28 total events (6 HIV+).\",\n      \"Liver graft failure: 16 total events (2 HIV+).\",\n      \"Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation).\"\n    )\n  )\n\ntbl_mega\n\n# -----------------------------\n# 3) Save as PNG for poster\n# -----------------------------\ngt_tbl &lt;- tbl_mega %&gt;%\n  as_gt() %&gt;%\n  tab_options(\n    table.width = pct(100),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngtsave(gt_tbl, filename = \"tables/cox_mega_table_poster.png\")\n\n\n\ninteraction_df &lt;- bind_rows(\n  extract_interaction(cox_mort_int,   \"Overall mortality\"),\n  extract_interaction(cox_kidney_int, \"Kidney graft failure (28 events; 6 HIV+)\"),\n  extract_interaction(cox_liver_int,  \"Liver graft failure (16 events; 2 HIV+)\")\n)\n\n\nmega_df_final &lt;- mega_df %&gt;%\n  left_join(interaction_df, by = \"Outcome\")\n\ngt_tbl &lt;- mega_df_final %&gt;%\n  gt(rowname_col = \"Outcome\") %&gt;%\n  tab_header(\n    title = md(\"**Cox regression results (matched cohort; N=336 total, 56 HIV-positive)**\"),\n    subtitle = md(\"Overall, stratified by DAA era, and HIV × era interaction\")\n  ) %&gt;%\n  tab_source_note(\n    md(\"Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation). Interaction ratio is the ratio of post-DAA to pre-DAA hazard ratios\")\n  ) %&gt;%\n  tab_options(\n    table.width = pct(80),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngtsave(gt_tbl, \"cox_mega_table_with_interaction.png\")\n\n\n\n\n\n\n\n# ---- build LONG table ----\nlos_long_tbl &lt;- dplyr::bind_rows(\n  extract_robust(\n    nb_los,\n    cluster = los_df$subclass,\n    model_label = \"Negative binomial (unadjusted)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\")\n  ),\n  extract_robust(\n    nb_los_era,\n    cluster = los_df$subclass,\n    model_label = \"Negative binomial (+ ERA)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\", \"ERAPost-DAA\")\n  ),\n  extract_robust(\n    lm_los,\n    cluster = los_df$subclass,\n    model_label = \"Log-linear sensitivity (log LOS, + ERA)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\", \"ERAPost-DAA\")\n  )\n)\n\n# ---- render as grouped long table ----\nlos_gt &lt;- los_long_tbl %&gt;%\n  gt(groupname_col = \"Model\") %&gt;%\n  tab_header(title = \"Length of hospital stay (discharged alive): regression results\") %&gt;%\n  cols_label(\n    Predictor = \"Predictor\",\n    `Effect (95% CI)` = \"Ratio (95% CI)\",\n    `Approx. % diff`  = \"Approx. % difference\",\n    `p-value` = \"p-value\"\n  ) %&gt;%\n  tab_source_note(\"Effect estimates are ratios (exp(beta)); robust SEs clustered by matched set (subclass). Outcome: los_days_inclusive.\")\n\nlos_gt\n\n\n\n\n# =========================\n# 2) Create a single clean table (HR (95% CI) + p)\n# =========================\ntab_pre  &lt;- format_cox(cox_pre,  \"Pre-DAA (adjusted)\")\ntab_post &lt;- format_cox(cox_post, \"Post-DAA (adjusted)\")\ntab_int  &lt;- format_cox(cox_int_adj, \"All eras (HIV×ERA + adjusted)\")\n\nall_tabs &lt;- bind_rows(tab_pre, tab_post, tab_int)\n\nprint(all_tabs)\n\n# =========================\n# 3) Export to a text file (easy to email)\n# =========================\nout_dir &lt;- \"~/Desktop/slk_match\"\ndir.create(out_dir, showWarnings = FALSE, recursive = TRUE)\n\ntxt_file &lt;- file.path(out_dir, \"SLK_Cox_PrePost_Interaction_Summary.txt\")\n\nsink(txt_file)\ncat(\"SLK Cox Models (Matched Cohort)\\n\")\ncat(\"=========================================\\n\\n\")\n\ncat(\"NOTE: Models use robust SEs clustered by matched set (subclass).\\n\")\ncat(\"      Matching weights are all 1 (nearest neighbor without replacement).\\n\\n\")\n\nif (length(res_pre$warnings)) {\n  cat(\"Warnings (Pre-DAA model):\\n\")\n  cat(paste0(\"- \", unique(res_pre$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\nif (length(res_post$warnings)) {\n  cat(\"Warnings (Post-DAA model):\\n\")\n  cat(paste0(\"- \", unique(res_post$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\nif (length(res_int$warnings)) {\n  cat(\"Warnings (Interaction model):\\n\")\n  cat(paste0(\"- \", unique(res_int$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\n\ncat(\"Table: Hazard ratios (95% CI) and p-values\\n\\n\")\nprint(all_tabs, row.names = FALSE)\n\ncat(\"\\n\\n--- Full model output (verbatim) ---\\n\\n\")\ncat(\"\\n[Pre-DAA adjusted model]\\n\")\nprint(summary(cox_pre))\ncat(\"\\n[Post-DAA adjusted model]\\n\")\nprint(summary(cox_post))\ncat(\"\\n[All eras interaction + adjusted model]\\n\")\nprint(summary(cox_int_adj))\n\nsink()\n\nmessage(\"Saved: \", txt_file)\n\n# =========================\n# 4) (Optional) Also export as CSV for quick viewing\n# =========================\ncsv_file &lt;- file.path(out_dir, \"SLK_Cox_PrePost_Interaction_Table.csv\")\nwrite.csv(all_tabs, csv_file, row.names = FALSE)\nmessage(\"Saved: \", csv_file)",
-    "crumbs": [
-      "Code",
-      "Tables and figures",
-      "Tables"
-    ]
-  },
-  {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Overview",
-    "section": "",
-    "text": "HIV SLK",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#clinical-background",
-    "href": "index.html#clinical-background",
-    "title": "Overview",
-    "section": "",
-    "text": "HIV SLK",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#what-this-analysis-does",
-    "href": "index.html#what-this-analysis-does",
-    "title": "Overview",
-    "section": "What this analysis does",
-    "text": "What this analysis does\nThe goal of HIV SLK outcomes is to compared the outcomes of people living with HIV (PLWH) who have undergone simultaneous liver-kidney transplant to controls without HIV using the Scientific Registry of Transplant Recipients database.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#methods",
-    "href": "index.html#methods",
-    "title": "Overview",
-    "section": "Methods",
-    "text": "Methods\nMatching",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#results",
-    "href": "index.html#results",
-    "title": "Overview",
-    "section": "Results",
-    "text": "Results\nPending",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#site-navigation",
-    "href": "index.html#site-navigation",
-    "title": "Overview",
-    "section": "Site navigation",
-    "text": "Site navigation\n\nSetup: Defines global paths, data sources, cohort inclusion criteria, and analysis-wide constants.\nFunctions: Reusable helper functions for cohort construction, matching, costing, and modeling.\nAbout: methods, assumptions, and disclosures\n\n\nReproducibility\nAll analyses presented on this website are fully reproducible.\nThe complete source code used to perform the full analysis and generate the tables and figures is publicly available at this GitHub repo. The R script R/main.R will run the R subscripts needed for this analysis in the order they are to be run. Model assumptions, parameter values, and analytic workflows are documented in the repository to facilitate transparency and reuse.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#abstractsmanuscripts",
-    "href": "index.html#abstractsmanuscripts",
-    "title": "Overview",
-    "section": "Abstracts/manuscripts",
-    "text": "Abstracts/manuscripts\nThis analysis has yet to be published to date. However, preliminary results have been presented at the NY-NJ Center for AIDS Research 2026 regional conference as a poster.\n\n\n\nPoster preview\n\n\nDownload the poster (PowerPoint)\nDownload as PDF",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "quarto/figures.html",
-    "href": "quarto/figures.html",
-    "title": "Figures",
-    "section": "",
-    "text": "This script draws the Kaplan–Meier curves for survival in the matched cohort by HIV status, overall and before and after the DAA era, with risk tables, and runs the log-rank tests.",
-    "crumbs": [
-      "Code",
-      "Tables and figures",
-      "Figures"
-    ]
-  },
-  {
-    "objectID": "quarto/figures.html#the-script",
-    "href": "quarto/figures.html#the-script",
-    "title": "Figures",
-    "section": "The script",
-    "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each figure will get its own explanation here.\n\n\nClick to show/hide R Code\n#Figures\n\n# Make KM curves -- overall, pre and post DAA\n\n# Ensure HIV is a factor with nice labels\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    HIV_LABEL = factor(\n      HIV_POSITIVE,\n      levels = c(0, 1),\n      labels = c(\"HIV Negative\", \"HIV Positive\")\n    )\n  )\n\n# Make ERA a factor with consistent order\nmatched_df$ERA &lt;- factor(matched_df$ERA, levels = c(\"Pre-DAA\", \"Post-DAA\"))\n\n#Overall KM curve with risk table \nkm_all &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)\n\np_all &lt;- ggsurvplot(\n  km_all,\n  data = matched_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Overall survival after SLK (HIV+ vs HIV-)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_all)\n\n# Save (curve + risk table together)\ng_all &lt;- arrange_ggsurvplots(list(p_all), print = FALSE)\n\nggsave(\n  filename = \"KM_overall.png\",\n  plot     = g_all,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n#Pre DAA KM curve with risk table\npre_df &lt;- matched_df %&gt;% filter(ERA == \"Pre-DAA\")\n\nkm_pre &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)\n\np_pre &lt;- ggsurvplot(\n  km_pre,\n  data = pre_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Survival after SLK (Pre-DAA era, 2005-2013)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_pre)\n\n# Save (curve + risk table together)\ng_all_pre &lt;- arrange_ggsurvplots(list(p_pre), print = FALSE)\n\nggsave(\n  filename = \"KM_pre_DAA.png\",\n  plot     = g_all_pre,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n\n#Post DAA KM Plot\npost_df &lt;- matched_df %&gt;% filter(ERA == \"Post-DAA\")\n\nkm_post &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)\n\np_post &lt;- ggsurvplot(\n  km_post,\n  data = post_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Survival after SLK (Post-DAA era, 2014-2023)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_post)\n\n# Save (curve + risk table together)\ng_all_post &lt;- arrange_ggsurvplots(list(p_post), print = FALSE)\n\nggsave(\n  filename = \"KM_post_DAA.png\",\n  plot     = g_all_post,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n#Log-Rank tests\nlr_all  &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)\nlr_pre  &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)\nlr_post &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)\n\nlr_all\nlr_pre\nlr_post\n\n#median survival tables \nsummary(km_all)$table\nsummary(km_pre)$table\nsummary(km_post)$table\n\n#median survival tables\n\n# Overall\nkm_all_tbl &lt;- as.data.frame(summary(km_all)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Overall\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Pre-DAA\nkm_pre_tbl &lt;- as.data.frame(summary(km_pre)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Pre-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Post-DAA\nkm_post_tbl &lt;- as.data.frame(summary(km_post)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Post-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Combine + clean\nkm_median_tbl &lt;- dplyr::bind_rows(\n  km_all_tbl,\n  km_pre_tbl,\n  km_post_tbl\n) %&gt;%\n  dplyr::mutate(\n    median_fmt = ifelse(\n      is.na(median),\n      \"Not reached\",\n      sprintf(\"%.2f\", median)\n    ),\n    CI = ifelse(\n      is.na(median),\n      \"—\",\n      paste0(sprintf(\"%.2f\", `0.95LCL`), \", \", sprintf(\"%.2f\", `0.95UCL`))\n    )\n  ) %&gt;%\n  dplyr::select(\n    Era,\n    HIV,\n    N = records,\n    Events = events,\n    `Median survival (years)` = median_fmt,\n    `95% CI` = CI\n  )\n\nkm_median_tbl\n\n\nkm_all_tbl &lt;- as.data.frame(summary(km_all)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Overall\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_pre_tbl &lt;- as.data.frame(summary(km_pre)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Pre-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_post_tbl &lt;- as.data.frame(summary(km_post)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Post-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_median_tbl &lt;- dplyr::bind_rows(km_all_tbl, km_pre_tbl, km_post_tbl) %&gt;%\n  dplyr::mutate(\n    median_fmt = ifelse(is.na(median), \"Not reached\", sprintf(\"%.2f\", median)),\n    CI = ifelse(\n      is.na(median),\n      \"—\",\n      paste0(sprintf(\"%.2f\", `0.95LCL`), \", \", sprintf(\"%.2f\", `0.95UCL`))\n    )\n  ) %&gt;%\n  dplyr::select(\n    Era,\n    HIV,\n    N = records,\n    Events = events,\n    `Median survival (years)` = median_fmt,\n    `95% CI` = CI\n  )\n\n# Print as a clean, copyable text table\nprint(knitr::kable(km_median_tbl, format = \"simple\"))",
-    "crumbs": [
-      "Code",
-      "Tables and figures",
-      "Figures"
+      "About"
     ]
   },
   {
@@ -413,7 +320,7 @@
     "href": "quarto/agents.html#quarto-website",
     "title": "",
     "section": "Quarto website",
-    "text": "Quarto website\nThe Quarto site documents the code. It does not run the analysis.\n\nSetup files: _quarto.yml, index.qmd, 404.qmd (the page GitHub Pages shows for a missing address) and styles.css sit at the root. There is one page per pipeline script in quarto/, named after the script (for example, quarto/process_slk_data.qmd for R/primary_data_preparation/process_slk_data.R), plus the project-document and About pages. The custom-callout extension in _extensions/ provides the Rcode, Results and Pending callouts.\nVisual cues. Each kind of page has one sidebar icon, coloured by styles.css, and pages mark the same kind of content with the callout of that colour: background book (blue); study design and methods diagram-3 (orange); R code laptop (pink, Rcode 💻); results clipboard-data (green, Results 📊); project documents file-earmark-ruled (grey). Give every new page the icon of its kind.\nProvisional content. quarto/_pending.lua highlights in yellow every paragraph that starts with Decision pending: or, in the plan, Open:, and any [text]{.pending}, and adds a ⏳ Pending callout to pages that have a mark. Mark only what an open decision could change, and remove the mark when the decision is settled.\nProject documents. analysis-plan.md, ARCHITECTURE.md, AGENTS.md and REPOSITORY-BLUEPRINT.md are shown on the site by pages in quarto/ that only include the root file, which stays the one source: edit the root file, not the page.\nShowing code: each page loads its script with knitr::read_chunk() in a hidden chunk. It then shows each labelled section in a chunk with #| eval: false, with prose explaining what the section does and why. Until a script is divided into labelled sections, its page may show the whole script with #| file: and eval: false. Pages link to the script on GitHub and to the scripts it depends on.\nNever evaluate analysis code in the site. Pages must render without SRTR data. _quarto.yml sets eval: false for every chunk; only the read_chunk() imports, the Setup page’s chunks that attach packages and build its package table from text, and the Architecture page’s chunk that reads ARCHITECTURE.md set eval: true. The rendered site therefore contains code and explanation only, never results. The one exception is the poster on the home page, which was already approved for public release.\nRendering: the site renders to docs/, which is not committed. .github/workflows/publish.yml renders it on every pull request as a check and, on each push to master, publishes it to the gh-pages branch, which GitHub Pages serves. Render locally to preview a change to a script’s labels or a page’s prose, but do not commit the output.\nNew scripts: when you add a script, add its page and its sidebar entry in _quarto.yml in the same pull request.\nProse must match the code. If a change alters what a section does, update that section’s explanation in the same pull request.",
+    "text": "Quarto website\nThe Quarto site documents the code. It does not run the analysis.\n\nSetup files: _quarto.yml, index.qmd, 404.qmd (the page GitHub Pages shows for a missing address) and styles.css sit at the root. There is one page per pipeline script in quarto/, named after the script (for example, quarto/process_slk_data.qmd for R/primary_data_preparation/process_slk_data.R), plus the Background (clinical and methodological), Study design and methods, project-document and About pages. The custom-callout extension in _extensions/ provides the Rcode, Results and Pending callouts.\nVisual cues. Each kind of page has one sidebar icon, coloured by styles.css, and pages mark the same kind of content with the callout of that colour: background book (blue); study design and methods diagram-3 (orange); R code laptop (pink, Rcode 💻); results clipboard-data (green, Results 📊); project documents file-earmark-ruled (grey). Give every new page the icon of its kind.\nProvisional content. quarto/_pending.lua highlights in yellow every paragraph that starts with Decision pending: or, in the plan, Open:, and any [text]{.pending}, and adds a ⏳ Pending callout to pages that have a mark. Mark only what an open decision could change, and remove the mark when the decision is settled.\nProject documents. analysis-plan.md, ARCHITECTURE.md, AGENTS.md and REPOSITORY-BLUEPRINT.md are shown on the site by pages in quarto/ that only include the root file, which stays the one source: edit the root file, not the page.\nReader comments. The issue-comments extension in _extensions/VagishHemmige/ lets readers highlight text and comment, after entering the shared passcode; the relay files each comment as an issue in this repository.\nShowing code: each page loads its script with knitr::read_chunk() in a hidden chunk. It then shows each labelled section in a chunk with #| eval: false, with prose explaining what the section does and why. Until a script is divided into labelled sections, its page may show the whole script with #| file: and eval: false. Pages link to the script on GitHub and to the scripts it depends on.\nNever evaluate analysis code in the site. Pages must render without SRTR data. _quarto.yml sets eval: false for every chunk; only the read_chunk() imports, the Setup page’s chunks that attach packages and build its package table from text, and the Architecture page’s chunk that reads ARCHITECTURE.md set eval: true. The rendered site therefore contains code and explanation only, never results. The one exception is the poster on the home page, which was already approved for public release.\nRendering: the site renders to docs/, which is not committed. .github/workflows/publish.yml renders it on every pull request as a check and, on each push to master, publishes it to the gh-pages branch, which GitHub Pages serves. Render locally to preview a change to a script’s labels or a page’s prose, but do not commit the output.\nNew scripts: when you add a script, add its page and its sidebar entry in _quarto.yml in the same pull request.\nProse must match the code. If a change alters what a section does, update that section’s explanation in the same pull request.",
     "crumbs": [
       "Project documents",
       "AGENTS.md"
@@ -475,13 +382,299 @@
     ]
   },
   {
-    "objectID": "quarto/about.html",
-    "href": "quarto/about.html",
-    "title": "About",
+    "objectID": "quarto/figures.html",
+    "href": "quarto/figures.html",
+    "title": "Figures",
     "section": "",
-    "text": "Pending",
+    "text": "This script draws the Kaplan–Meier curves for survival in the matched cohort by HIV status, overall and before and after the DAA era, with risk tables, and runs the log-rank tests.",
     "crumbs": [
-      "About"
+      "Code",
+      "Tables and figures",
+      "Figures"
+    ]
+  },
+  {
+    "objectID": "quarto/figures.html#the-script",
+    "href": "quarto/figures.html#the-script",
+    "title": "Figures",
+    "section": "The script",
+    "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each figure will get its own explanation here.\n\n\nClick to show/hide R Code\n#Figures\n\n# Make KM curves -- overall, pre and post DAA\n\n# Ensure HIV is a factor with nice labels\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    HIV_LABEL = factor(\n      HIV_POSITIVE,\n      levels = c(0, 1),\n      labels = c(\"HIV Negative\", \"HIV Positive\")\n    )\n  )\n\n# Make ERA a factor with consistent order\nmatched_df$ERA &lt;- factor(matched_df$ERA, levels = c(\"Pre-DAA\", \"Post-DAA\"))\n\n#Overall KM curve with risk table \nkm_all &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)\n\np_all &lt;- ggsurvplot(\n  km_all,\n  data = matched_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Overall survival after SLK (HIV+ vs HIV-)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_all)\n\n# Save (curve + risk table together)\ng_all &lt;- arrange_ggsurvplots(list(p_all), print = FALSE)\n\nggsave(\n  filename = \"KM_overall.png\",\n  plot     = g_all,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n#Pre DAA KM curve with risk table\npre_df &lt;- matched_df %&gt;% filter(ERA == \"Pre-DAA\")\n\nkm_pre &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)\n\np_pre &lt;- ggsurvplot(\n  km_pre,\n  data = pre_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Survival after SLK (Pre-DAA era, 2005-2013)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_pre)\n\n# Save (curve + risk table together)\ng_all_pre &lt;- arrange_ggsurvplots(list(p_pre), print = FALSE)\n\nggsave(\n  filename = \"KM_pre_DAA.png\",\n  plot     = g_all_pre,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n\n#Post DAA KM Plot\npost_df &lt;- matched_df %&gt;% filter(ERA == \"Post-DAA\")\n\nkm_post &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)\n\np_post &lt;- ggsurvplot(\n  km_post,\n  data = post_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Survival after SLK (Post-DAA era, 2014-2023)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_post)\n\n# Save (curve + risk table together)\ng_all_post &lt;- arrange_ggsurvplots(list(p_post), print = FALSE)\n\nggsave(\n  filename = \"KM_post_DAA.png\",\n  plot     = g_all_post,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n#Log-Rank tests\nlr_all  &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)\nlr_pre  &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)\nlr_post &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)\n\nlr_all\nlr_pre\nlr_post\n\n#median survival tables \nsummary(km_all)$table\nsummary(km_pre)$table\nsummary(km_post)$table\n\n#median survival tables\n\n# Overall\nkm_all_tbl &lt;- as.data.frame(summary(km_all)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Overall\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Pre-DAA\nkm_pre_tbl &lt;- as.data.frame(summary(km_pre)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Pre-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Post-DAA\nkm_post_tbl &lt;- as.data.frame(summary(km_post)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Post-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Combine + clean\nkm_median_tbl &lt;- dplyr::bind_rows(\n  km_all_tbl,\n  km_pre_tbl,\n  km_post_tbl\n) %&gt;%\n  dplyr::mutate(\n    median_fmt = ifelse(\n      is.na(median),\n      \"Not reached\",\n      sprintf(\"%.2f\", median)\n    ),\n    CI = ifelse(\n      is.na(median),\n      \"—\",\n      paste0(sprintf(\"%.2f\", `0.95LCL`), \", \", sprintf(\"%.2f\", `0.95UCL`))\n    )\n  ) %&gt;%\n  dplyr::select(\n    Era,\n    HIV,\n    N = records,\n    Events = events,\n    `Median survival (years)` = median_fmt,\n    `95% CI` = CI\n  )\n\nkm_median_tbl\n\n\nkm_all_tbl &lt;- as.data.frame(summary(km_all)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Overall\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_pre_tbl &lt;- as.data.frame(summary(km_pre)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Pre-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_post_tbl &lt;- as.data.frame(summary(km_post)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Post-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_median_tbl &lt;- dplyr::bind_rows(km_all_tbl, km_pre_tbl, km_post_tbl) %&gt;%\n  dplyr::mutate(\n    median_fmt = ifelse(is.na(median), \"Not reached\", sprintf(\"%.2f\", median)),\n    CI = ifelse(\n      is.na(median),\n      \"—\",\n      paste0(sprintf(\"%.2f\", `0.95LCL`), \", \", sprintf(\"%.2f\", `0.95UCL`))\n    )\n  ) %&gt;%\n  dplyr::select(\n    Era,\n    HIV,\n    N = records,\n    Events = events,\n    `Median survival (years)` = median_fmt,\n    `95% CI` = CI\n  )\n\n# Print as a clean, copyable text table\nprint(knitr::kable(km_median_tbl, format = \"simple\"))",
+    "crumbs": [
+      "Code",
+      "Tables and figures",
+      "Figures"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Overview",
+    "section": "",
+    "text": "HIV SLK",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#clinical-background",
+    "href": "index.html#clinical-background",
+    "title": "Overview",
+    "section": "",
+    "text": "HIV SLK",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#what-this-analysis-does",
+    "href": "index.html#what-this-analysis-does",
+    "title": "Overview",
+    "section": "What this analysis does",
+    "text": "What this analysis does\nThe goal of HIV SLK outcomes is to compared the outcomes of people living with HIV (PLWH) who have undergone simultaneous liver-kidney transplant to controls without HIV using the Scientific Registry of Transplant Recipients database.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#methods",
+    "href": "index.html#methods",
+    "title": "Overview",
+    "section": "Methods",
+    "text": "Methods\nMatching",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#results",
+    "href": "index.html#results",
+    "title": "Overview",
+    "section": "Results",
+    "text": "Results\nPending",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#reproducibility",
+    "href": "index.html#reproducibility",
+    "title": "Overview",
+    "section": "Reproducibility",
+    "text": "Reproducibility\nAll analyses presented on this website are fully reproducible.\nThe complete source code used to perform the full analysis and generate the tables and figures is publicly available at this GitHub repo. The R script R/main.R will run the R subscripts needed for this analysis in the order they are to be run. Model assumptions, parameter values, and analytic workflows are documented in the repository to facilitate transparency and reuse.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#abstractsmanuscripts",
+    "href": "index.html#abstractsmanuscripts",
+    "title": "Overview",
+    "section": "Abstracts/manuscripts",
+    "text": "Abstracts/manuscripts\nThis analysis has yet to be published to date. However, preliminary results have been presented at the NY-NJ Center for AIDS Research 2026 regional conference as a poster.\n\n\n\nPoster preview\n\n\nDownload the poster (PowerPoint)\nDownload as PDF",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "quarto/tables.html",
+    "href": "quarto/tables.html",
+    "title": "Tables",
+    "section": "",
+    "text": "This script builds the tables for the poster and manuscript from the matched cohort: the recipient and donor characteristics, and the hazard ratios for mortality and for kidney and liver graft failure, overall and by DAA era.",
+    "crumbs": [
+      "Code",
+      "Tables and figures",
+      "Tables"
+    ]
+  },
+  {
+    "objectID": "quarto/tables.html#the-script",
+    "href": "quarto/tables.html#the-script",
+    "title": "Tables",
+    "section": "The script",
+    "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each table will get its own explanation here.\n\n\nClick to show/hide R Code\n# Making condensed table for poster\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    # Sex labels\n    DON_GENDER = recode_sex_FM(DON_GENDER),\n    CAN_GENDER = recode_sex_FM(CAN_GENDER),\n    \n    # Donor race collapsed to match recipient race buckets\n    DON_RACE_collapsed = collapse_donor_race(DON_RACE),\n  ) %&gt;%\n  mutate(\n    # nice ordering for tables\n    DON_GENDER = factor(DON_GENDER, levels = c(\"Female\", \"Male\")),\n    CAN_GENDER = factor(CAN_GENDER, levels = c(\"Female\", \"Male\")),\n    \n    DON_RACE_collapsed = factor(DON_RACE_collapsed,\n                                levels = c(\"White\", \"Black\", \"Hispanic/Latino\", \"Other\", \"Missing\"))\n  ) %&gt;%\n  set_variable_labels(\n    DON_GENDER = \"Donor sex\",\n    DON_RACE_collapsed = \"Donor race\",\n    DON_ANTI_HIV_recode = \"Donor anti-HIV antibody\",\n    \n    CAN_GENDER = \"Recipient sex\",\n    CAN_RACE_collapsed = \"Recipient race\",\n    \n    REC_HBV_ANTIBODY_COMB = \"HBV core antibody\",\n    REC_HBV_SURF_ANTIGEN_COMB = \"HBV surface antigen\",\n    REC_HCV_STAT_COMB = \"HCV serology\",\n    REC_CMV_COMBINED = \"CMV serology\"\n  )\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    # ---- serologies: Unknown -&gt; NA ----\n    REC_HBV_ANTIBODY_COMB     = na_if(REC_HBV_ANTIBODY_COMB, \"Unknown\"),\n    REC_HBV_SURF_ANTIGEN_COMB = na_if(REC_HBV_SURF_ANTIGEN_COMB, \"Unknown\"),\n    REC_HCV_STAT_COMB         = na_if(REC_HCV_STAT_COMB, \"Unknown\"),\n    REC_CMV_COMBINED          = na_if(REC_CMV_COMBINED, \"Unknown\"),\n    \n    # ---- donor anti-HIV: Unknown -&gt; NA ----\n    DON_ANTI_HIV_recode = na_if(DON_ANTI_HIV_recode, \"Unknown\"),\n    \n    # ---- drop unused factor levels ----\n    across(where(is.factor), fct_drop)\n  )\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    DON_RACE_collapsed = case_when(\n      DON_RACE %in% c(\"8\", \"White\") ~ \"White\",\n      DON_RACE %in% c(\"16\", \"Black or African American\") ~ \"Black\",\n      DON_RACE %in% c(\"2000\", \"Hispanic/Latino\") ~ \"Hispanic/Latino\",\n      is.na(DON_RACE) ~ NA_character_,\n      TRUE ~ \"Other\"\n    ),\n    DON_RACE_collapsed = factor(\n      DON_RACE_collapsed,\n      levels = c(\"White\", \"Black\", \"Hispanic/Latino\", \"Other\")\n    )\n  )\n\n\nshort_var_list&lt;-c(\"DON_AGE\",\n                  \"DON_GENDER\",\n                  \"CAN_BMI_clean\",\n                  \"REC_AGE_YEARS\",\n                  \"CAN_GENDER\",\n                  \"CAN_RACE_collapsed\",\n                  \"TRANSPLANT_REASON_LI\",\n                  \"TRANSPLANT_REASON_KI_COLLAPSED\",\n                  \"REC_HBV_SURF_ANTIGEN_COMB\",\n                  \"REC_HCV_STAT_COMB\",\n                  \"REC_CMV_COMBINED\",\n                  \"MELD_NUM_Last\"\n)\n\n\n\n#condensed table\ntbl_dat2 &lt;- matched_df %&gt;%\n  dplyr::select(\n    HIV_POSITIVE,\n    all_of(short_var_list)\n  )\n\n# \"self-healing\" labels: only keep labels for vars that exist in tbl_dat\nlabel_list_ok &lt;- label_list[names(label_list) %in% names(tbl_dat)]\n\n\ntab2 &lt;-\n  tbl_dat2 %&gt;%\n  gtsummary::tbl_summary(\n    by = HIV_POSITIVE,\n    missing = \"ifany\",\n    statistic = list(\n      gtsummary::all_continuous() ~ \"{median} ({p25}, {p75})\",\n      gtsummary::all_categorical() ~ \"{n} ({p}%)\"\n    ),\n    label = label_list_ok\n  ) %&gt;%\n  gtsummary::add_p(\n    test = gtsummary::all_categorical() ~ \"fisher.test\",\n    test.args = gtsummary::all_categorical() ~ list(simulate.p.value = TRUE)\n  ) %&gt;%\n  as_gt() %&gt;%\n  gt::cols_label(\n    stat_1 = \"Negative/Unknown\",\n    stat_2 = \"Positive\"\n  ) %&gt;%\n  gt::tab_header(\n    title = \"Characteristics of HIV-positive and HIV-negative SLK recipients (matched cohort)\"\n  )\n\ngt::gtsave(tab2, \"tables/matched_table_condensed_2.png\")\n\n\n\n\n#make tables\n# Kidney graft failure events\nwith(matched_df, table(KI_EVENT, useNA = \"ifany\"))\n# Liver graft failure events\nwith(matched_df, table(LI_EVENT, useNA = \"ifany\"))\n\n# By era (optional)\nwith(matched_df, table(HIV_POSITIVE, KI_EVENT))\nwith(matched_df, table(HIV_POSITIVE, LI_EVENT))\n\n\n#make kidney failure tables\n#clean labels\nt_kid_unadj &lt;- clean_labels(mk_tbl(cox_kidney))\nt_kid_era   &lt;- clean_labels(mk_tbl(cox_kidney_era))\nt_kid_int   &lt;- clean_labels(mk_tbl(cox_kidney_int))\nt_kid_pre   &lt;- clean_labels(mk_tbl(cox_kidney_pre))\nt_kid_post  &lt;- clean_labels(mk_tbl(cox_kidney_post))\n\n#create table\ntbl_kidney_gf &lt;-\n  tbl_merge(\n    tbls = list(\n      t_kid_unadj,\n      t_kid_era,\n      t_kid_int,\n      t_kid_pre,\n      t_kid_post\n    ),\n    tab_spanner = c(\n      \"**Unadjusted**\",\n      \"**Adjusted for ERA**\",\n      \"**HIV × ERA**\",\n      \"**Pre-DAA only**\",\n      \"**Post-DAA only**\"\n    )\n  ) %&gt;%\n  modify_caption(\"**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~ \"Robust standard errors clustered by matched set (subclass).\"\n  )\n\ntbl_kidney_gf\n\n#change table orientation\ntbl_kidney_gf_long &lt;- tbl_stack(\n  tbls = list(t_kid_unadj, t_kid_era, t_kid_int, t_kid_pre, t_kid_post),\n  group_header = c(\n    \"Unadjusted\",\n    \"Adjusted for ERA\",\n    \"HIV × ERA interaction\",\n    \"Pre-DAA only\",\n    \"Post-DAA only\"\n  )\n) %&gt;%\n  modify_caption(\"**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(everything() ~ \"Robust standard errors clustered by matched set (subclass).\")\n\ntbl_kidney_gf_long\n\n\n#make liver tables\nt_liv_unadj &lt;- clean_labels(mk_tbl(cox_liver))\nt_liv_era   &lt;- clean_labels(mk_tbl(cox_liver_era))\nt_liv_pre   &lt;- clean_labels(mk_tbl(cox_liver_pre))\nt_liv_post  &lt;- clean_labels(mk_tbl(cox_liver_post))\n\ntbl_liver_gf &lt;-\n  tbl_merge(\n    tbls = list(\n      t_liv_unadj,\n      t_liv_era,\n      t_liv_pre,\n      t_liv_post\n    ),\n    tab_spanner = c(\n      \"**Unadjusted**\",\n      \"**Adjusted for ERA**\",\n      \"**Pre-DAA only**\",\n      \"**Post-DAA only**\"\n    )\n  ) %&gt;%\n  modify_caption(\"**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~\n      \"Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events.\"\n  )\n\ntbl_liver_gf\n\n#change table orientation\ntbl_liver_gf_long &lt;- tbl_stack(\n  tbls = list(t_liv_unadj, t_liv_era, t_liv_pre, t_liv_post),\n  group_header = c(\n    \"Unadjusted\",\n    \"Adjusted for ERA\",\n    \"Pre-DAA only\",\n    \"Post-DAA only\"\n  )\n) %&gt;%\n  modify_caption(\"**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~ \"Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events.\"\n  )\n\ntbl_liver_gf_long\n\n```\n\ntable for poster\n```{r making tables for poster}\nlibrary(gtsummary)\nlibrary(survival)\nlibrary(gt)\n\n# -----------------------------\n# 0) Helper functions\n# -----------------------------\nmk_tbl &lt;- function(fit) {\n  tbl_regression(\n    fit,\n    exponentiate = TRUE,\n    estimate_fun = ~ style_sigfig(.x, digits = 2),   # keeps model output tidy\n    pvalue_fun   = ~ style_pvalue(.x, digits = 2)\n  ) %&gt;%\n    bold_labels()\n}\n\nclean_labels &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          label = case_when(\n                            label == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n                            TRUE ~ label\n                          )\n                        )\n    )\n}\n\n# Create HR (95% CI) with 2 decimals and keep p-value\nshrink_one &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        # keep only the HIV row\n                        filter(term == \"HIV_POSITIVE\") %&gt;%\n                        mutate(\n                          est_num  = suppressWarnings(as.numeric(estimate)),\n                          low_num  = suppressWarnings(as.numeric(conf.low)),\n                          high_num = suppressWarnings(as.numeric(conf.high)),\n                          \n                          hr_ci = case_when(\n                            !is.na(est_num) ~ sprintf(\"%.2f (%.2f–%.2f)\", est_num, low_num, high_num),\n                            TRUE ~ NA_character_\n                          ),\n                          \n                          p_fmt = case_when(\n                            is.na(p.value) ~ NA_character_,\n                            p.value &lt; 0.01 ~ \"&lt;0.01\",\n                            TRUE ~ sprintf(\"%.2f\", p.value)\n                          )\n                        ) %&gt;%\n                        select(label, hr_ci, p_fmt)\n    ) %&gt;%\n    modify_header(\n      hr_ci ~ \"**HR (95% CI)**\",\n      p_fmt ~ \"**p**\"\n    )\n}\n\n\n# Mark Post-DAA liver graft failure as not estimable (NE)\nmark_ne &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          hr_ci = \"NE\",\n                          p_fmt = NA_character_\n                        )\n    )\n}\n\n# -----------------------------\n# 1) Build SMALL tables for each model (overall / pre / post) per outcome\n# -----------------------------\n\n# ---- Mortality ----\nmort_overall &lt;- clean_labels(mk_tbl(cox_main))       %&gt;% shrink_one()\nmort_pre     &lt;- clean_labels(mk_tbl(cox_pre_unadj))  %&gt;% shrink_one()\nmort_post    &lt;- clean_labels(mk_tbl(cox_post_unadj)) %&gt;% shrink_one()\n\ntbl_mort_block &lt;- tbl_merge(\n  tbls = list(mort_overall, mort_pre, mort_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# ---- Kidney graft failure ----\nkid_overall &lt;- clean_labels(mk_tbl(cox_kidney))      %&gt;% shrink_one()\nkid_pre     &lt;- clean_labels(mk_tbl(cox_kidney_pre))  %&gt;% shrink_one()\nkid_post    &lt;- clean_labels(mk_tbl(cox_kidney_post)) %&gt;% shrink_one()\n\ntbl_kid_block &lt;- tbl_merge(\n  tbls = list(kid_overall, kid_pre, kid_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# ---- Liver graft failure ----\nliv_overall &lt;- clean_labels(mk_tbl(cox_liver))      %&gt;% shrink_one()\nliv_pre     &lt;- clean_labels(mk_tbl(cox_liver_pre))  %&gt;% shrink_one()\n\n# Post-DAA liver: quasi separation -&gt; NE\nliv_post &lt;- clean_labels(mk_tbl(cox_liver_post)) %&gt;%\n  shrink_one() %&gt;%\n  mark_ne()\n\ntbl_liv_block &lt;- tbl_merge(\n  tbls = list(liv_overall, liv_pre, liv_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# -----------------------------\n# 2) Stack into the MEGA table + caption/footnote\n# -----------------------------\ntbl_mega &lt;- tbl_stack(\n  tbls = list(tbl_mort_block, tbl_kid_block, tbl_liv_block),\n  group_header = c(\n    \"Overall mortality\",\n    \"Kidney graft failure (28 events; 6 HIV+)\",\n    \"Liver graft failure (16 events; 2 HIV+)\"\n  )\n) %&gt;%\n  modify_caption(\"**Cox regression results (matched cohort), overall and stratified by DAA era**\") %&gt;%\n  modify_footnote(\n    everything() ~ paste(\n      \"Robust SEs clustered by matched set (subclass).\",\n      \"Kidney graft failure: 28 total events (6 HIV+).\",\n      \"Liver graft failure: 16 total events (2 HIV+).\",\n      \"Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation).\"\n    )\n  )\n\ntbl_mega\n\n# -----------------------------\n# 3) Save as PNG for poster\n# -----------------------------\ngt_tbl &lt;- tbl_mega %&gt;%\n  as_gt() %&gt;%\n  tab_options(\n    table.width = pct(100),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngtsave(gt_tbl, filename = \"tables/cox_mega_table_poster.png\")\n\n\n\ninteraction_df &lt;- bind_rows(\n  extract_interaction(cox_mort_int,   \"Overall mortality\"),\n  extract_interaction(cox_kidney_int, \"Kidney graft failure (28 events; 6 HIV+)\"),\n  extract_interaction(cox_liver_int,  \"Liver graft failure (16 events; 2 HIV+)\")\n)\n\n\nmega_df_final &lt;- mega_df %&gt;%\n  left_join(interaction_df, by = \"Outcome\")\n\ngt_tbl &lt;- mega_df_final %&gt;%\n  gt(rowname_col = \"Outcome\") %&gt;%\n  tab_header(\n    title = md(\"**Cox regression results (matched cohort; N=336 total, 56 HIV-positive)**\"),\n    subtitle = md(\"Overall, stratified by DAA era, and HIV × era interaction\")\n  ) %&gt;%\n  tab_source_note(\n    md(\"Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation). Interaction ratio is the ratio of post-DAA to pre-DAA hazard ratios\")\n  ) %&gt;%\n  tab_options(\n    table.width = pct(80),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngtsave(gt_tbl, \"cox_mega_table_with_interaction.png\")\n\n\n\n\n\n\n\n# ---- build LONG table ----\nlos_long_tbl &lt;- dplyr::bind_rows(\n  extract_robust(\n    nb_los,\n    cluster = los_df$subclass,\n    model_label = \"Negative binomial (unadjusted)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\")\n  ),\n  extract_robust(\n    nb_los_era,\n    cluster = los_df$subclass,\n    model_label = \"Negative binomial (+ ERA)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\", \"ERAPost-DAA\")\n  ),\n  extract_robust(\n    lm_los,\n    cluster = los_df$subclass,\n    model_label = \"Log-linear sensitivity (log LOS, + ERA)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\", \"ERAPost-DAA\")\n  )\n)\n\n# ---- render as grouped long table ----\nlos_gt &lt;- los_long_tbl %&gt;%\n  gt(groupname_col = \"Model\") %&gt;%\n  tab_header(title = \"Length of hospital stay (discharged alive): regression results\") %&gt;%\n  cols_label(\n    Predictor = \"Predictor\",\n    `Effect (95% CI)` = \"Ratio (95% CI)\",\n    `Approx. % diff`  = \"Approx. % difference\",\n    `p-value` = \"p-value\"\n  ) %&gt;%\n  tab_source_note(\"Effect estimates are ratios (exp(beta)); robust SEs clustered by matched set (subclass). Outcome: los_days_inclusive.\")\n\nlos_gt\n\n\n\n\n# =========================\n# 2) Create a single clean table (HR (95% CI) + p)\n# =========================\ntab_pre  &lt;- format_cox(cox_pre,  \"Pre-DAA (adjusted)\")\ntab_post &lt;- format_cox(cox_post, \"Post-DAA (adjusted)\")\ntab_int  &lt;- format_cox(cox_int_adj, \"All eras (HIV×ERA + adjusted)\")\n\nall_tabs &lt;- bind_rows(tab_pre, tab_post, tab_int)\n\nprint(all_tabs)\n\n# =========================\n# 3) Export to a text file (easy to email)\n# =========================\nout_dir &lt;- \"~/Desktop/slk_match\"\ndir.create(out_dir, showWarnings = FALSE, recursive = TRUE)\n\ntxt_file &lt;- file.path(out_dir, \"SLK_Cox_PrePost_Interaction_Summary.txt\")\n\nsink(txt_file)\ncat(\"SLK Cox Models (Matched Cohort)\\n\")\ncat(\"=========================================\\n\\n\")\n\ncat(\"NOTE: Models use robust SEs clustered by matched set (subclass).\\n\")\ncat(\"      Matching weights are all 1 (nearest neighbor without replacement).\\n\\n\")\n\nif (length(res_pre$warnings)) {\n  cat(\"Warnings (Pre-DAA model):\\n\")\n  cat(paste0(\"- \", unique(res_pre$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\nif (length(res_post$warnings)) {\n  cat(\"Warnings (Post-DAA model):\\n\")\n  cat(paste0(\"- \", unique(res_post$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\nif (length(res_int$warnings)) {\n  cat(\"Warnings (Interaction model):\\n\")\n  cat(paste0(\"- \", unique(res_int$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\n\ncat(\"Table: Hazard ratios (95% CI) and p-values\\n\\n\")\nprint(all_tabs, row.names = FALSE)\n\ncat(\"\\n\\n--- Full model output (verbatim) ---\\n\\n\")\ncat(\"\\n[Pre-DAA adjusted model]\\n\")\nprint(summary(cox_pre))\ncat(\"\\n[Post-DAA adjusted model]\\n\")\nprint(summary(cox_post))\ncat(\"\\n[All eras interaction + adjusted model]\\n\")\nprint(summary(cox_int_adj))\n\nsink()\n\nmessage(\"Saved: \", txt_file)\n\n# =========================\n# 4) (Optional) Also export as CSV for quick viewing\n# =========================\ncsv_file &lt;- file.path(out_dir, \"SLK_Cox_PrePost_Interaction_Table.csv\")\nwrite.csv(all_tabs, csv_file, row.names = FALSE)\nmessage(\"Saved: \", csv_file)",
+    "crumbs": [
+      "Code",
+      "Tables and figures",
+      "Tables"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html",
+    "href": "quarto/repository-blueprint.html",
+    "title": "",
+    "section": "",
+    "text": "Project documentsRepository blueprint Code",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html#analytical-scripts",
+    "href": "quarto/repository-blueprint.html#analytical-scripts",
+    "title": "",
+    "section": "Analytical scripts",
+    "text": "Analytical scripts\n\nR/main.R sources definitive scripts in dependency order.\nTypical workflow: setup → cohort construction → processing → modeling → outputs.\nStudy-specific scripts may be grouped into subdirectories by analytical stage.\nR/tables.R and R/figures.R may generate outputs directly or orchestrate specialized scripts.",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html#documentation",
+    "href": "quarto/repository-blueprint.html#documentation",
+    "title": "",
+    "section": "Documentation",
+    "text": "Documentation\n\nDocument definitive analytical scripts with explanatory Quarto pages; exploratory scripts need not have pages.\nUse Cryptococcus-cost-analysis as an example for Quarto supporting files, chunk imports, callouts, and formatting—not scientific methods.\nQuarto source and rendered output locations may vary by project.",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html#outputs-and-version-control",
+    "href": "quarto/repository-blueprint.html#outputs-and-version-control",
+    "title": "",
+    "section": "Outputs and version control",
+    "text": "Outputs and version control\n\nTrack approved, nonrestricted outputs when useful for publication; otherwise retain them locally and exclude them from Git.\n.gitignore: Exclude restricted data, credentials, caches, temporary files, and generated outputs unless intentionally tracked (e.g., .Rproj.user/, .Rhistory, .RData, .httr-oauth, .quarto/, cache/, figures/, tables/, *.quarto_ipynb); verify exclusions cover actual output paths without hiding necessary source or reference files.",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/functions.html",
+    "href": "quarto/functions.html",
+    "title": "Functions",
+    "section": "",
+    "text": "This script defines the helper functions used across the analysis: harmonizing the liver and kidney copies of a variable, recoding SRTR codes into labels, and turning Cox models into tables of hazard ratios.",
+    "crumbs": [
+      "Code",
+      "Setup and helper functions",
+      "Functions"
+    ]
+  },
+  {
+    "objectID": "quarto/functions.html#the-script",
+    "href": "quarto/functions.html#the-script",
+    "title": "Functions",
+    "section": "The script",
+    "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each function will get its own explanation here.\n\n\nClick to show/hide R Code\n#Functions\n\n\n#From the combining_liver_kidney_variables.R script\ncombine_li_ki_consistent &lt;- function(li, ki,\n                                     pos_codes = c(\"Y\",\"P\",\"1\"),\n                                     neg_codes = c(\"N\",\"0\"),\n                                     unknown_codes = c(\"U\",\"ND\",\"Unknown\",\"\", NA),\n                                     out_pos = NULL,\n                                     out_neg = NULL,\n                                     unknown_out = NA_character_,\n                                     discordant_out = NA_character_) {\n  \n  li_chr &lt;- stringr::str_trim(as.character(li))\n  ki_chr &lt;- stringr::str_trim(as.character(ki))\n  \n  # Clean unknowns\n  li_clean &lt;- ifelse(li_chr %in% unknown_codes, NA_character_, li_chr)\n  ki_clean &lt;- ifelse(ki_chr %in% unknown_codes, NA_character_, ki_chr)\n  \n  if (is.null(out_pos)) out_pos &lt;- pos_codes[1]\n  if (is.null(out_neg)) out_neg &lt;- neg_codes[1]\n  \n  discordant &lt;- (!is.na(li_clean) & !is.na(ki_clean)) &\n    ((li_clean %in% pos_codes & ki_clean %in% neg_codes) |\n       (li_clean %in% neg_codes & ki_clean %in% pos_codes))\n  \n  dplyr::case_when(\n    # Explicit P vs N conflict\n    discordant ~ discordant_out,\n    \n    # Positive if P + (P or NA)\n    (li_clean %in% pos_codes & (is.na(ki_clean) | ki_clean %in% pos_codes)) ~ out_pos,\n    (ki_clean %in% pos_codes & (is.na(li_clean) | li_clean %in% pos_codes)) ~ out_pos,\n    \n    # Negative if N + N OR N + NA\n    (li_clean %in% neg_codes & (is.na(ki_clean) | ki_clean %in% neg_codes)) ~ out_neg,\n    (ki_clean %in% neg_codes & (is.na(li_clean) | li_clean %in% neg_codes)) ~ out_neg,\n    \n    # Everything else\n    TRUE ~ unknown_out\n  )\n}\n\n\n\n# --- helper recoders ---\nrecode_sex_FM &lt;- function(x) {\n  x &lt;- as.character(x)\n  dplyr::recode(x,\n                \"F\" = \"Female\",\n                \"M\" = \"Male\",\n                .default = x\n  )\n}\n\nrecode_YNU_to_words &lt;- function(x) {\n  x &lt;- as.character(x)\n  # combine U + Unknown first\n  x &lt;- dplyr::recode(x, \"Unknown\" = \"U\", .default = x)\n  dplyr::recode(x,\n                \"Y\" = \"Yes\",\n                \"N\" = \"No\",\n                \"U\" = \"Unknown\",\n                .default = x\n  )\n}\n\n\n# SRTR-style donor race codes seen in your table:\ncollapse_donor_race &lt;- function(x) {\n  x &lt;- as.character(x)\n  case_when(\n    is.na(x) ~ \"Missing\",\n    x %in% c(\"8\", \"White\", \"WHITE\") ~ \"White\",\n    x %in% c(\"16\", \"Black or African American\", \"BLACK\") ~ \"Black\",\n    x %in% c(\"2000\", \"Hispanic/Latino\", \"HISPANIC\") ~ \"Hispanic/Latino\",\n    # everything else (Asian, AIAN, NHPI, etc.)\n    TRUE ~ \"Other\"\n  )\n}\n\n\n#Converts a vector of labels into a list object for the gtsummary package\nmake_gtsummary_labels &lt;- function(named_vec) {\n  lapply(names(named_vec), function(v) {\n    as.formula(paste0(v, \" ~ \", shQuote(unname(named_vec[[v]]))))\n  })\n}\n\n\n# Helper: convert NA / \"\" / \" \" to \"Missing\" and return a factor\nmake_missing_level &lt;- function(x, missing_label = \"Missing\") {\n  x &lt;- as.character(x)\n  x &lt;- trimws(x)\n  x[x == \"\"] &lt;- NA\n  x[is.na(x)] &lt;- missing_label\n  factor(x)\n}\n\n#fix variable levels\nrecode_YNU &lt;- function(x) {\n  recode(x,\n         \"Y\" = \"Yes\",\n         \"N\" = \"No\",\n         \"U\" = \"Unknown\",\n         .default = as.character(x))\n}\n\nrecode_PNU &lt;- function(x) {\n  recode(x,\n         \"P\" = \"Positive\",\n         \"N\" = \"Negative\",\n         \"U\" = \"Unknown\",\n         .default = as.character(x))\n}\n\n\n#Table-creating functions\n\n#make a \"make table\" function\nmk_tbl &lt;- function(fit) {\n  tbl_regression(\n    fit,\n    exponentiate = TRUE\n  ) %&gt;%\n    bold_labels() %&gt;%\n    italicize_levels()\n}\n\n#make clean labels function\nclean_labels &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          label = case_when(\n                            label == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n                            label == \"ERAPost-DAA\" ~ \"Post-DAA era (vs Pre-DAA)\",\n                            label == \"HIV_POSITIVE:ERAPost-DAA\" ~ \"HIV × Post-DAA interaction\",\n                            TRUE ~ label\n                          )\n                        )\n    )\n}\n\n\n\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Helper: extract robust HR/CI/p for HIV_POSITIVE\n# Uses vcov(fit) -&gt; robust sandwich when you fit with robust=TRUE + cluster=subclass\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\nextract_hiv_row &lt;- function(fit, label, ne = FALSE) {\n  if (ne) {\n    return(tibble(\n      Outcome = label,\n      `HR (95% CI)` = \"NE\",\n      p = \"\"\n    ))\n  }\n  \n  term &lt;- \"HIV_POSITIVE\"\n  b &lt;- unname(coef(fit)[term])\n  \n  # robust SE from vcov (should be robust due to robust=TRUE + cluster=subclass)\n  V &lt;- vcov(fit)\n  se &lt;- sqrt(unname(V[term, term]))\n  \n  z  &lt;- b / se\n  p  &lt;- 2 * pnorm(-abs(z))\n  \n  hr &lt;- exp(b)\n  lo &lt;- exp(b - 1.96 * se)\n  hi &lt;- exp(b + 1.96 * se)\n  \n  p_fmt &lt;- ifelse(is.na(p), \"\",\n                  ifelse(p &lt; 0.01, \"&lt;0.01\", sprintf(\"%.2f\", p)))\n  \n  tibble(\n    Outcome = label,\n    `HR (95% CI)` = sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi),\n    p = p_fmt\n  )\n}\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Build the mega results table as a dataframe\n# Assumes you already created these Cox fits:\n# cox_main, cox_pre_unadj, cox_post_unadj\n# cox_kidney, cox_kidney_pre, cox_kidney_post\n# cox_liver, cox_liver_pre, cox_liver_post\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\nmega_df &lt;- bind_rows(\n  # Mortality block (overall/pre/post)\n  extract_hiv_row(cox_main,      \"Overall mortality — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_pre_unadj, \"Overall mortality — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_post_unadj,\"Overall mortality — Post-DAA\")%&gt;% mutate(ERA = \"Post-DAA\"),\n  \n  # Kidney graft failure block with event counts in label\n  extract_hiv_row(cox_kidney,      \"Kidney graft failure (28 events; 6 HIV+) — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_kidney_pre,  \"Kidney graft failure (28 events; 6 HIV+) — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_kidney_post, \"Kidney graft failure (28 events; 6 HIV+) — Post-DAA\")%&gt;% mutate(ERA = \"Post-DAA\"),\n  \n  # Liver graft failure block with Post-DAA marked NE\n  extract_hiv_row(cox_liver,     \"Liver graft failure (16 events; 2 HIV+) — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_liver_pre, \"Liver graft failure (16 events; 2 HIV+) — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_liver_post,\"Liver graft failure (16 events; 2 HIV+) — Post-DAA\", ne = TRUE) %&gt;% mutate(ERA = \"Post-DAA\")\n) %&gt;%\n  # Keep just the outcome group name (without the era suffix) and make a wide table\n  mutate(\n    OutcomeGroup = sub(\" — (Overall|Pre-DAA|Post-DAA)$\", \"\", Outcome)\n  ) %&gt;%\n  select(OutcomeGroup, ERA, `HR (95% CI)`, p) %&gt;%\n  tidyr::pivot_wider(\n    names_from = ERA,\n    values_from = c(`HR (95% CI)`, p),\n    names_glue = \"{.value} ({ERA})\"\n  ) %&gt;%\n  rename(Outcome = OutcomeGroup)\n\n\n\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Render with gt and save\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\ngt_tbl &lt;- mega_df %&gt;%\n  gt(rowname_col = \"Outcome\") %&gt;%\n  tab_header(\n    title = md(\"**Cox regression results (matched cohort), overall and stratified by DAA era**\"),\n    subtitle = md(\"HIV-positive vs HIV-negative; robust SEs clustered by matched set (subclass)\")\n  ) %&gt;%\n  tab_source_note(\n    md(\"Kidney graft failure: 28 total events (6 HIV+). Liver graft failure: 16 total events (2 HIV+). Post-DAA liver graft failure: **NE** = not estimable due to sparse/zero events (quasi separation).\")\n  ) %&gt;%\n  tab_options(\n    table.width = pct(80),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngt_tbl\n\ngtsave(gt_tbl, filename = \"cox_mega_table_poster.png\")\n\n#adding interaction term to table\ncox_mort_int &lt;- coxph(\n  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\ncox_kidney_int &lt;- coxph(\n  Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\ncox_liver_int &lt;- coxph(\n  Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\nlibrary(dplyr)\nlibrary(survival)\n\nfmt_p &lt;- function(p) {\n  if (is.na(p)) return(NA_character_)\n  if (p &lt; 0.01) return(\"&lt;0.01\")\n  sprintf(\"%.2f\", p)\n}\n\nfmt_hrci &lt;- function(hr, lo, hi) {\n  sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi)\n}\n\n\n\nextract_interaction &lt;- function(fit, outcome_label,\n                                term = \"HIV_POSITIVE:ERAPost-DAA\") {\n  \n  # ---- FORCE NE for liver graft failure (sparse post-DAA events) ----\n  if (outcome_label == \"Liver graft failure (16 events; 2 HIV+)\") {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = \"NE\",\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  # ---- If interaction term not present ----\n  if (!term %in% names(coef(fit))) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  \n  \n  b &lt;- unname(coef(fit)[term])\n  \n  V &lt;- tryCatch(vcov(fit), error = function(e) NULL)\n  if (is.null(V) || !all(term %in% rownames(V))) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  se &lt;- sqrt(unname(V[term, term]))\n  \n  # ---- Guard against infinite / zero / NA SE ----\n  if (!is.finite(se) || is.na(se) || se &lt;= 0) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  # ---- Compute HR, CI, p ----\n  hr &lt;- exp(b)\n  lo &lt;- exp(b - 1.96 * se)\n  hi &lt;- exp(b + 1.96 * se)\n  p  &lt;- 2 * pnorm(-abs(b / se))\n  \n  tibble(\n    Outcome = outcome_label,\n    `Interaction HR (95% CI)` = sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi),\n    `Interaction p` = ifelse(p &lt; 0.01, \"&lt;0.01\", sprintf(\"%.2f\", p))\n  )\n}\n\n#make table for LOS\nextract_robust &lt;- function(fit, cluster, model_label,\n                           exponentiate = TRUE,\n                           keep_terms = NULL) {\n  \n  ct &lt;- coeftest(fit, vcov = vcovCL(fit, cluster = cluster))\n  \n  df &lt;- tibble(\n    Model    = model_label,\n    term     = rownames(ct),\n    estimate = as.numeric(ct[, 1]),\n    se       = as.numeric(ct[, 2]),\n    p.value  = as.numeric(ct[, ncol(ct)])\n  )\n  \n  if (!is.null(keep_terms)) df &lt;- df %&gt;% dplyr::filter(term %in% keep_terms)\n  \n  df &lt;- df %&gt;%\n    dplyr::mutate(\n      conf.low  = estimate - 1.96 * se,\n      conf.high = estimate + 1.96 * se\n    )\n  \n  if (exponentiate) {\n    df &lt;- df %&gt;%\n      dplyr::mutate(\n        est = exp(estimate),\n        lo  = exp(conf.low),\n        hi  = exp(conf.high),\n        pct = (est - 1) * 100\n      )\n  } else {\n    df &lt;- df %&gt;%\n      dplyr::mutate(\n        est = estimate,\n        lo  = conf.low,\n        hi  = conf.high,\n        pct = NA_real_\n      )\n  }\n  \n  df %&gt;%\n    dplyr::mutate(\n      Predictor = dplyr::case_when(\n        term == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n        term == \"ERAPost-DAA\"  ~ \"Post-DAA era (vs Pre-DAA)\",\n        term == \"(Intercept)\" ~ \"Intercept\",\n        TRUE ~ term\n      ),\n      `Effect (95% CI)` = sprintf(\"%.2f (%.2f, %.2f)\", est, lo, hi),\n      `Approx. % diff`  = ifelse(is.na(pct), NA_character_, sprintf(\"%+.1f%%\", pct)),\n      `p-value` = dplyr::case_when(\n        is.na(p.value) ~ NA_character_,\n        p.value &lt; 0.001 ~ \"&lt;0.001\",\n        TRUE ~ sprintf(\"%.3f\", p.value)\n      )\n    ) %&gt;%\n    dplyr::select(Model, Predictor, `Effect (95% CI)`, `Approx. % diff`, `p-value`)\n}\n\n\n# --- helper: format one cox model nicely ---\n\nformat_cox &lt;- function(fit, model_name = \"Model\") {\n  s &lt;- summary(fit)\n  n &lt;- s$n\n  events &lt;- s$nevent\n  \n  # broom table (robust SEs are already baked into coef(summary(fit)) when robust=TRUE)\n  out &lt;- broom::tidy(fit, exponentiate = TRUE, conf.int = TRUE) %&gt;%\n    mutate(\n      model = model_name,\n      n = n,\n      events = events,\n      # nicer labels\n      term = case_when(\n        term == \"HIV_POSITIVE\" ~ \"HIV positive (vs negative)\",\n        term == \"ERAPost-DAA\" ~ \"Post-DAA (vs Pre-DAA)\",\n        term == \"HIV_POSITIVE:ERAPost-DAA\" ~ \"Interaction: HIV × Post-DAA\",\n        str_detect(term, \"^REC_HBV_SURF_ANTIGEN_COMB\") ~ str_replace(term, \"^REC_HBV_SURF_ANTIGEN_COMB\", \"HBsAg: \"),\n        str_detect(term, \"^REC_CMV_COMBINED\") ~ str_replace(term, \"^REC_CMV_COMBINED\", \"CMV: \"),\n        TRUE ~ term\n      ),\n      hr_ci = sprintf(\"%.2f (%.2f–%.2f)\", estimate, conf.low, conf.high),\n      p_fmt = ifelse(p.value &lt; 0.001, \"&lt;0.001\", sprintf(\"%.3f\", p.value))\n    ) %&gt;%\n    select(model, n, events, term, hr_ci, p_fmt)\n  \n  out\n}\n\n# --- helper: capture warnings while fitting (optional) ---\nfit_cox_capture_warning &lt;- function(expr) {\n  w &lt;- NULL\n  fit &lt;- withCallingHandlers(\n    expr,\n    warning = function(m) {\n      w &lt;&lt;- c(w, conditionMessage(m))\n      invokeRestart(\"muffleWarning\")\n    }\n  )\n  list(fit = fit, warnings = w)\n}",
+    "crumbs": [
+      "Code",
+      "Setup and helper functions",
+      "Functions"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html",
+    "href": "quarto/study_methods.html",
+    "title": "Study design and methods",
+    "section": "",
+    "text": "Provisional\n\n\n\nText highlighted like this is provisional: it depends on a decision the analysis plan has not yet made. To comment on any part of this page, highlight the text and use the 💬 Comment button.\nThis page will explain, in plain language and without code, what this study chose and why. The general background it relies on is on Methodological background. The formal specification is the analysis plan. Three kinds of note mark where the description stands:",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#the-question-and-the-design-in-brief",
+    "href": "quarto/study_methods.html#the-question-and-the-design-in-brief",
+    "title": "Study design and methods",
+    "section": "The question and the design in brief",
+    "text": "The question and the design in brief\nWill cover: the question, the matched cohort design, and what is estimated.\nSpecified in: §1 Objective, §2 Design.\n\nDecision pending: whether the comparison with liver-only recipients with HIV is part of this paper (#19).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#data-and-study-period",
+    "href": "quarto/study_methods.html#data-and-study-period",
+    "title": "Study design and methods",
+    "section": "Data and study period",
+    "text": "Data and study period\nWill cover: the SRTR release and the transplant years included.\nSpecified in: §3 Data source.",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#who-is-included",
+    "href": "quarto/study_methods.html#who-is-included",
+    "title": "Study design and methods",
+    "section": "Who is included",
+    "text": "Who is included\nWill cover: how SLK recipients are identified, and who is excluded and why.\nSpecified in: §4 Study population.\n\nDecision pending: the recipient age threshold (#11).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#hiv-status-era-and-time-zero",
+    "href": "quarto/study_methods.html#hiv-status-era-and-time-zero",
+    "title": "Study design and methods",
+    "section": "HIV status, era and time zero",
+    "text": "HIV status, era and time zero\nWill cover: how HIV status is classified from the two files, the pre- and post-DAA eras, and when follow-up starts.\nSpecified in: §5 Exposure, era, and time zero.\n\nDecision pending: HIV status when one file is positive and the other unknown (#12).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#matching",
+    "href": "quarto/study_methods.html#matching",
+    "title": "Study design and methods",
+    "section": "Matching",
+    "text": "Matching\nWill cover: how HIV-negative controls are matched to each HIV-positive recipient, and how balance is checked.\nSpecified in: §6 Matching.\n\nDecision pending: the propensity score covariates, including recipient race (#13), and missing continuous covariates (#14).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#outcomes",
+    "href": "quarto/study_methods.html#outcomes",
+    "title": "Study design and methods",
+    "section": "Outcomes",
+    "text": "Outcomes\nWill cover: all-cause mortality, death-censored kidney and liver graft failure, and hospital length of stay.\nSpecified in: §7 Outcomes.\n\nDecision pending: whether retransplantation or return to dialysis counts as graft failure (#15).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#analysis",
+    "href": "quarto/study_methods.html#analysis",
+    "title": "Study design and methods",
+    "section": "Analysis",
+    "text": "Analysis\nWill cover: the descriptive comparisons, survival curves, Cox models, effect modification by era, and length of stay.\nSpecified in: §8 Statistical analysis.\n\nDecision pending: regression for length of stay (#16), adjusted era-specific models (#17), and sparse or zero events (#20).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#sensitivity-analyses",
+    "href": "quarto/study_methods.html#sensitivity-analyses",
+    "title": "Study design and methods",
+    "section": "Sensitivity analyses",
+    "text": "Sensitivity analyses\nWill cover: the alternative analyses and why each is run.\nSpecified in: §9 Sensitivity analyses.",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#disclosure",
+    "href": "quarto/study_methods.html#disclosure",
+    "title": "Study design and methods",
+    "section": "Disclosure",
+    "text": "Disclosure\nWill cover: how counts are protected before anything is published.\nSpecified in: §10 Disclosure control.\n\nDecision pending: the small-cell rule under the SRTR data use agreement (#18).",
+    "crumbs": [
+      "Study design and methods"
+    ]
+  },
+  {
+    "objectID": "quarto/study_methods.html#limitations",
+    "href": "quarto/study_methods.html#limitations",
+    "title": "Study design and methods",
+    "section": "Limitations",
+    "text": "Limitations\nWill cover: what the registry data cannot answer, and how that shapes interpretation.\nSpecified in: §11 Limitations to address in reporting.",
+    "crumbs": [
+      "Study design and methods"
     ]
   },
   {
@@ -636,6 +829,61 @@
     "crumbs": [
       "Project documents",
       "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/methodological_background.html",
+    "href": "quarto/methodological_background.html",
+    "title": "Methodological background",
+    "section": "",
+    "text": "Note\n\n\n\nThis page is being written. The headings below show what it will cover. It explains the data and methods in general terms; what this study chose is on Study design and methods.",
+    "crumbs": [
+      "Background",
+      "Methodological background"
+    ]
+  },
+  {
+    "objectID": "quarto/methodological_background.html#the-srtr-standard-analysis-files",
+    "href": "quarto/methodological_background.html#the-srtr-standard-analysis-files",
+    "title": "Methodological background",
+    "section": "The SRTR standard analysis files",
+    "text": "The SRTR standard analysis files\nWill cover: what the Scientific Registry of Transplant Recipients collects, how its standard analysis files are organized, and how follow-up is reported.",
+    "crumbs": [
+      "Background",
+      "Methodological background"
+    ]
+  },
+  {
+    "objectID": "quarto/methodological_background.html#linking-liver-and-kidney-records",
+    "href": "quarto/methodological_background.html#linking-liver-and-kidney-records",
+    "title": "Methodological background",
+    "section": "Linking liver and kidney records",
+    "text": "Linking liver and kidney records\nWill cover: why a simultaneous liver–kidney transplant appears in both the liver and the kidney files, and how the two records are linked and reconciled.",
+    "crumbs": [
+      "Background",
+      "Methodological background"
+    ]
+  },
+  {
+    "objectID": "quarto/methodological_background.html#propensity-score-matching",
+    "href": "quarto/methodological_background.html#propensity-score-matching",
+    "title": "Methodological background",
+    "section": "Propensity score matching",
+    "text": "Propensity score matching\nWill cover: how a propensity score is estimated, how matched controls are chosen, and how balance between groups is checked.",
+    "crumbs": [
+      "Background",
+      "Methodological background"
+    ]
+  },
+  {
+    "objectID": "quarto/methodological_background.html#time-to-event-analysis-in-a-matched-cohort",
+    "href": "quarto/methodological_background.html#time-to-event-analysis-in-a-matched-cohort",
+    "title": "Methodological background",
+    "section": "Time-to-event analysis in a matched cohort",
+    "text": "Time-to-event analysis in a matched cohort\nWill cover: Kaplan–Meier curves, Cox models with standard errors that account for matched sets, and death-censored graft failure.",
+    "crumbs": [
+      "Background",
+      "Methodological background"
     ]
   }
 ]
