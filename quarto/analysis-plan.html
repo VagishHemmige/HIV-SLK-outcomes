@@ -105,17 +105,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 <style>
-div.callout-Pending.callout {
-  border-left-color: #f0c400;
-}
-div.callout-Pending.callout-style-default > .callout-header {
-  background-color: rgba(240, 196, 0, 0.13);
-}
-div.callout-Pending .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
-div.callout-Pending.callout-style-default .callout-icon::before, div.callout-Pending.callout-titled .callout-icon::before {
-  content: '⏳';
-  background-image: none;
-}
 div.callout-Rcode.callout {
   border-left-color: #d63384;
 }
@@ -136,6 +125,17 @@ div.callout-Results.callout-style-default > .callout-header {
 div.callout-Results .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
 div.callout-Results.callout-style-default .callout-icon::before, div.callout-Results.callout-titled .callout-icon::before {
   content: '📊';
+  background-image: none;
+}
+div.callout-Pending.callout {
+  border-left-color: #f0c400;
+}
+div.callout-Pending.callout-style-default > .callout-header {
+  background-color: rgba(240, 196, 0, 0.13);
+}
+div.callout-Pending .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
+div.callout-Pending.callout-style-default .callout-icon::before, div.callout-Pending.callout-titled .callout-icon::before {
+  content: '⏳';
   background-image: none;
 }
 </style>
@@ -345,7 +345,6 @@ div.callout-Results.callout-style-default .callout-icon::before, div.callout-Res
   <li><a href="#10-disclosure-control" id="toc-10-disclosure-control" class="nav-link" data-scroll-target="#10-disclosure-control">10. Disclosure control</a></li>
   <li><a href="#11-limitations-to-address-in-reporting" id="toc-11-limitations-to-address-in-reporting" class="nav-link" data-scroll-target="#11-limitations-to-address-in-reporting">11. Limitations to address in reporting</a></li>
   <li><a href="#12-reporting-map" id="toc-12-reporting-map" class="nav-link" data-scroll-target="#12-reporting-map">12. Reporting map</a></li>
-  <li><a href="#13-open-decisions" id="toc-13-open-decisions" class="nav-link" data-scroll-target="#13-open-decisions">13. Open decisions</a></li>
   <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul></li>
   </ul>
@@ -393,6 +392,19 @@ div.callout-Results.callout-style-default .callout-icon::before, div.callout-Res
 </header>
 
 
+<div class="callout callout-style-default callout-Pending callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Provisional
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="pending">Text highlighted like this</span> is provisional: it depends on a decision the analysis plan has not yet made.</p>
+</div>
+</div>
 <!--
 This page only shows analysis-plan.md from the repository root, which is the one source:
 edit that file, not this page. Its first heading is the page title.
@@ -404,7 +416,9 @@ gives this page GitHub-style IDs and those links work on both.
 <section id="statistical-analysis-plan-outcomes-of-simultaneous-liverkidney-transplantation-in-people-with-hiv" class="level1">
 <h1>Statistical Analysis Plan: Outcomes of Simultaneous Liver–Kidney Transplantation in People With HIV</h1>
 <p><strong>Version:</strong> 0.1 (draft) · <strong>Date:</strong> 2026-10-25 · <strong>Authors:</strong> Hannah Rosenthal, Christina Tsai, Jonathan Mamber Czeresnia, Vagish Hemmige, Clara Tow</p>
-<p>This plan states the intended design and analysis. It was reconstructed from the 2026 NY-NJ CFAR poster and the draft manuscript methods. Where those sources disagree, or where the method behind the poster results is not documented, the choice is listed as <strong>Decision D<em>n</em></strong> in <a href="#13-open-decisions">Open decisions</a> rather than resolved here.</p>
+<div class="pending-note">
+<p>This plan states the intended design and analysis. It was reconstructed from the 2026 NY-NJ CFAR poster and the draft manuscript methods. Where those sources disagree, or where the method behind the poster results is not documented, the choice is marked <strong>Open:</strong> where it occurs, with a link to its decision issue (titled “Decision D<em>n</em>”), rather than resolved here.</p>
+</div>
 <p>Reporting will follow STROBE. The <a href="#12-reporting-map">reporting map</a> links each checklist item to a section of this plan.</p>
 <hr>
 <section id="1-objective" class="level2">
@@ -416,7 +430,10 @@ gives this page GitHub-style IDs and those links work on both.
 <li>Compare post-transplant hospital length of stay among recipients discharged alive.</li>
 <li>Assess whether the association between HIV and each outcome differs between the eras before and after direct-acting antivirals (DAAs) for hepatitis C.</li>
 </ul>
-<p><strong>Planned future aim (not part of this analysis):</strong> compare SLK recipients with HIV to liver-only recipients with HIV (<strong>Decision D9</strong>).</p>
+<p><strong>Planned future aim (not part of this analysis):</strong> compare SLK recipients with HIV to liver-only recipients with HIV.</p>
+<div class="pending-note">
+<p><strong>Open:</strong> D9 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/19">#19</a>): whether this comparison is part of this paper or a separate analysis.</p>
+</div>
 </section>
 <section id="2-design" class="level2">
 <h2 class="anchored" data-anchor-id="2-design">2. Design</h2>
@@ -448,9 +465,12 @@ gives this page GitHub-style IDs and those links work on both.
 <h3 class="anchored" data-anchor-id="42-inclusion">4.2 Inclusion</h3>
 <ol type="1">
 <li>SLK transplant during the study period (<a href="#3-data-source">Section 3</a>).</li>
-<li>Recipient age at transplant of at least 16 years. <strong>Decision D1:</strong> the age threshold (the poster cohort used ≥16 years; the manuscript says “greater than 16” and “adult”).</li>
+<li>Recipient age at transplant of at least 16 years (see D1 below).</li>
 <li>Non-missing identifiers needed for linkage and follow-up, including the donor identifier in both files.</li>
 </ol>
+<div class="pending-note">
+<p><strong>Open:</strong> D1 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/11">#11</a>): the age threshold (the poster cohort used ≥16 years; the manuscript says “greater than 16” and “adult”).</p>
+</div>
 </section>
 <section id="43-exclusion" class="level3">
 <h3 class="anchored" data-anchor-id="43-exclusion">4.3 Exclusion</h3>
@@ -473,7 +493,9 @@ gives this page GitHub-style IDs and those links work on both.
 <li><strong>HIV-negative:</strong> every other non-discordant recipient, including those whose status is unknown or not done in both files.</li>
 <li><strong>Discordant</strong> (positive in one file, negative in the other): excluded (<a href="#43-exclusion">Section 4.3</a>).</li>
 </ul>
-<p><strong>Decision D2:</strong> the manuscript says a positive status must be “not contradicted by an ‘unknown’ designation” in the other file, while the poster cohort classified positive-plus-unknown as positive. Because HIV-negative includes unknown status, tables label that group “Negative/Unknown”.</p>
+<div class="pending-note">
+<p><strong>Open:</strong> D2 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/12">#12</a>): the manuscript says a positive status must be “not contradicted by an ‘unknown’ designation” in the other file, while the poster cohort classified positive-plus-unknown as positive. Because HIV-negative includes unknown status, tables label that group “Negative/Unknown”.</p>
+</div>
 </section>
 <section id="52-daa-era" class="level3">
 <h3 class="anchored" data-anchor-id="52-daa-era">5.2 DAA era</h3>
@@ -538,8 +560,12 @@ gives this page GitHub-style IDs and those links work on both.
 </tbody>
 </table>
 <p>Serologies are harmonized across the liver and kidney files: positive if positive in one file and positive or missing in the other; negative if negative in one and negative or missing in the other; directly conflicting values (positive versus negative) are treated as missing.</p>
-<p><strong>Decision D3:</strong> the covariate set, including whether recipient race is included. The manuscript list omits race; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper). The covariate set behind the poster results is not fully documented.</p>
-<p><strong>Decision D4:</strong> handling of missing covariate values. Categorical covariates use an explicit “Missing” level. For continuous covariates (MELD, donor age, recipient age), the method used for the poster results is not documented. The options are complete-case exclusion before matching, missing indicators, or imputation.</p>
+<div class="pending-note">
+<p><strong>Open:</strong> D3 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/13">#13</a>): the covariate set, including whether recipient race is included. The manuscript list omits race; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper). The covariate set behind the poster results is not fully documented.</p>
+</div>
+<div class="pending-note">
+<p><strong>Open:</strong> D4 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/14">#14</a>): handling of missing covariate values. Categorical covariates use an explicit “Missing” level. For continuous covariates (MELD, donor age, recipient age), the method used for the poster results is not documented. The options are complete-case exclusion before matching, missing indicators, or imputation.</p>
+</div>
 </section>
 <section id="63-matching-outcomes-reported" class="level3">
 <h3 class="anchored" data-anchor-id="63-matching-outcomes-reported">6.3 Matching outcomes reported</h3>
@@ -568,7 +594,9 @@ gives this page GitHub-style IDs and those links work on both.
 <li><strong>Follow-up</strong> ends at the earliest of graft failure, death, or that organ’s last follow-up date. Death before graft failure is censored.</li>
 <li><strong>Time:</strong> from that organ’s transplant date, in years.</li>
 </ul>
-<p><strong>Decision D5:</strong> whether retransplantation of the organ (<code>PERS_NEXTTX</code>) or return to chronic dialysis without a recorded graft failure date also counts as graft failure.</p>
+<div class="pending-note">
+<p><strong>Open:</strong> D5 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/15">#15</a>): whether retransplantation of the organ (<code>PERS_NEXTTX</code>) or return to chronic dialysis without a recorded graft failure date also counts as graft failure.</p>
+</div>
 </section>
 <section id="73-secondary-outcome-hospital-length-of-stay" class="level3">
 <h3 class="anchored" data-anchor-id="73-secondary-outcome-hospital-length-of-stay">7.3 Secondary outcome: hospital length of stay</h3>
@@ -610,13 +638,19 @@ gives this page GitHub-style IDs and those links work on both.
 <li>Cox models fitted separately within the pre-DAA and post-DAA matched cohorts. Matched sets stay within one era because era is matched exactly.</li>
 <li>A model with an HIV × era interaction in the full matched cohort, to test for effect modification. The interaction hazard ratio is the ratio of the post-DAA to the pre-DAA hazard ratio.</li>
 </ul>
-<p><strong>Decision D7:</strong> whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance after matching (for example, HBV surface antigen and CMV).</p>
-<p><strong>Decision D10:</strong> handling of sparse or zero events (for example, liver graft failure in the post-DAA era): report as not estimable, or use Firth’s penalized Cox regression.</p>
+<div class="pending-note">
+<p><strong>Open:</strong> D7 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/17">#17</a>): whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance after matching (for example, HBV surface antigen and CMV).</p>
+</div>
+<div class="pending-note">
+<p><strong>Open:</strong> D10 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/20">#20</a>): handling of sparse or zero events (for example, liver graft failure in the post-DAA era): report as not estimable, or use Firth’s penalized Cox regression.</p>
+</div>
 </section>
 <section id="85-length-of-stay" class="level3">
 <h3 class="anchored" data-anchor-id="85-length-of-stay">8.5 Length of stay</h3>
 <p>Compared between groups with the Wilcoxon rank-sum test, because of its right-skewed distribution.</p>
-<p><strong>Decision D6:</strong> whether length of stay is also analysed by regression (negative binomial or log-linear, with standard errors clustered on matched set) as a secondary analysis.</p>
+<div class="pending-note">
+<p><strong>Open:</strong> D6 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/16">#16</a>): whether length of stay is also analysed by regression (negative binomial or log-linear, with standard errors clustered on matched set) as a secondary analysis.</p>
+</div>
 </section>
 <section id="86-missing-data" class="level3">
 <h3 class="anchored" data-anchor-id="86-missing-data">8.6 Missing data</h3>
@@ -646,9 +680,11 @@ gives this page GitHub-style IDs and those links work on both.
 <h2 class="anchored" data-anchor-id="10-disclosure-control">10. Disclosure control</h2>
 <ul>
 <li>All outputs are reviewed against the SRTR data use agreement before they leave the secure environment.</li>
-<li><strong>Decision D8:</strong> the small-cell rule for tables, figures, flow diagrams, risk tables and website text, under the exact wording of the SRTR data use agreement (for example, suppressing counts below 11).</li>
 <li>Figures that show individual people are not published.</li>
 </ul>
+<div class="pending-note">
+<p><strong>Open:</strong> D8 (<a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/18">#18</a>): the small-cell rule for tables, figures, flow diagrams, risk tables and website text, under the exact wording of the SRTR data use agreement (for example, suppressing counts below 11).</p>
+</div>
 </section>
 <section id="11-limitations-to-address-in-reporting" class="level2">
 <h2 class="anchored" data-anchor-id="11-limitations-to-address-in-reporting">11. Limitations to address in reporting</h2>
@@ -750,75 +786,6 @@ gives this page GitHub-style IDs and those links work on both.
 <td>STROBE 22</td>
 <td>Funding; access to code</td>
 <td>8.7</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="13-open-decisions" class="level2">
-<h2 class="anchored" data-anchor-id="13-open-decisions">13. Open decisions</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>ID</th>
-<th>Decision</th>
-<th>Section</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>D1</td>
-<td>Recipient age threshold: ≥16 years (poster), &gt;16 years, or adults ≥18 years</td>
-<td>4.2</td>
-</tr>
-<tr class="even">
-<td>D2</td>
-<td>HIV classification when one file is positive and the other unknown or not done</td>
-<td>5.1</td>
-</tr>
-<tr class="odd">
-<td>D3</td>
-<td>Propensity score covariate set, including recipient race</td>
-<td>6.2</td>
-</tr>
-<tr class="even">
-<td>D4</td>
-<td>Missing continuous covariates in the propensity score</td>
-<td>6.2</td>
-</tr>
-<tr class="odd">
-<td>D5</td>
-<td>Whether retransplantation or return to dialysis counts as graft failure</td>
-<td>7.2</td>
-</tr>
-<tr class="even">
-<td>D6</td>
-<td>Whether regression models of length of stay are reported alongside the Wilcoxon test</td>
-<td>8.5</td>
-</tr>
-<tr class="odd">
-<td>D7</td>
-<td>Era-specific Cox models: unadjusted only, or also adjusted</td>
-<td>8.4</td>
-</tr>
-<tr class="even">
-<td>D8</td>
-<td>Small-cell disclosure rule under the SRTR data use agreement</td>
-<td>10</td>
-</tr>
-<tr class="odd">
-<td>D9</td>
-<td>Whether the liver-only comparison is part of this paper or a separate analysis</td>
-<td>1</td>
-</tr>
-<tr class="even">
-<td>D10</td>
-<td>Sparse or zero events: report as not estimable, or Firth’s penalized Cox regression</td>
-<td>8.4</td>
 </tr>
 </tbody>
 </table>
