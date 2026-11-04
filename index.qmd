@@ -20,15 +20,7 @@ Matching
 
 Pending
 
-## Site navigation
-
--   [**Setup**](quarto/setup.qmd): Defines global paths, data sources, cohort inclusion criteria, and analysis-wide constants.
--   [**Functions**](quarto/functions.qmd): Reusable helper functions for cohort construction, matching, costing, and modeling.
--   [**About**](quarto/about.qmd): methods, assumptions, and disclosures
-
-
-
-### Reproducibility
+## Reproducibility
 
 All analyses presented on this website are fully reproducible.  
 

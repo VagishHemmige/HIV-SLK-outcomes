@@ -234,10 +234,3 @@ libraries_table |>
 
 
 ```
-
-
-
-
-## Other portions of the analysis
-
--   [**About**](about.qmd): methods, assumptions, and disclosures
