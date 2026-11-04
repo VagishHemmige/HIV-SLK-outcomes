@@ -2,7 +2,7 @@
 
 **Version:** 0.1 (draft) · **Date:** 2026-10-25 · **Authors:** Hannah Rosenthal, Christina Tsai, Jonathan Mamber Czeresnia, Vagish Hemmige, Clara Tow
 
-This plan states the intended design and analysis. It was reconstructed from the 2026 NY-NJ CFAR poster and the draft manuscript methods. Where those sources disagree, or where the method behind the poster results is not documented, the choice is listed as **Decision D*n*** in [Open decisions](#13-open-decisions) rather than resolved here.
+This plan states the intended design and analysis. It was reconstructed from the 2026 NY-NJ CFAR poster and the draft manuscript methods. Where those sources disagree, or where the method behind the poster results is not documented, the choice is marked **Open:** where it occurs, with a link to its decision issue (titled "Decision D*n*"), rather than resolved here.
 
 Reporting will follow STROBE. The [reporting map](#12-reporting-map) links each checklist item to a section of this plan.
 
@@ -18,7 +18,9 @@ To compare all-cause mortality after simultaneous liver–kidney (SLK) transplan
 - Compare post-transplant hospital length of stay among recipients discharged alive.
 - Assess whether the association between HIV and each outcome differs between the eras before and after direct-acting antivirals (DAAs) for hepatitis C.
 
-**Planned future aim (not part of this analysis):** compare SLK recipients with HIV to liver-only recipients with HIV (**Decision D9**).
+**Planned future aim (not part of this analysis):** compare SLK recipients with HIV to liver-only recipients with HIV.
+
+**Open:** D9 ([#19](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/19)): whether this comparison is part of this paper or a separate analysis.
 
 ## 2. Design
 
@@ -46,8 +48,10 @@ An SLK transplant is a liver transplant and a kidney transplant in the same pers
 ### 4.2 Inclusion
 
 1. SLK transplant during the study period ([Section 3](#3-data-source)).
-2. Recipient age at transplant of at least 16 years. **Decision D1:** the age threshold (the poster cohort used ≥16 years; the manuscript says "greater than 16" and "adult").
+2. Recipient age at transplant of at least 16 years (see D1 below).
 3. Non-missing identifiers needed for linkage and follow-up, including the donor identifier in both files.
+
+**Open:** D1 ([#11](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/11)): the age threshold (the poster cohort used ≥16 years; the manuscript says "greater than 16" and "adult").
 
 ### 4.3 Exclusion
 
@@ -68,7 +72,7 @@ Recipient HIV serostatus at transplant, from `REC_HIV_STAT` in the liver and kid
 - **HIV-negative:** every other non-discordant recipient, including those whose status is unknown or not done in both files.
 - **Discordant** (positive in one file, negative in the other): excluded ([Section 4.3](#43-exclusion)).
 
-**Decision D2:** the manuscript says a positive status must be "not contradicted by an 'unknown' designation" in the other file, while the poster cohort classified positive-plus-unknown as positive. Because HIV-negative includes unknown status, tables label that group "Negative/Unknown".
+**Open:** D2 ([#12](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/12)): the manuscript says a positive status must be "not contradicted by an 'unknown' designation" in the other file, while the poster cohort classified positive-plus-unknown as positive. Because HIV-negative includes unknown status, tables label that group "Negative/Unknown".
 
 ### 5.2 DAA era
 
@@ -104,9 +108,9 @@ The composite transplant date: the earlier of the liver and kidney transplant da
 
 Serologies are harmonized across the liver and kidney files: positive if positive in one file and positive or missing in the other; negative if negative in one and negative or missing in the other; directly conflicting values (positive versus negative) are treated as missing.
 
-**Decision D3:** the covariate set, including whether recipient race is included. The manuscript list omits race; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper). The covariate set behind the poster results is not fully documented.
+**Open:** D3 ([#13](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/13)): the covariate set, including whether recipient race is included. The manuscript list omits race; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper). The covariate set behind the poster results is not fully documented.
 
-**Decision D4:** handling of missing covariate values. Categorical covariates use an explicit "Missing" level. For continuous covariates (MELD, donor age, recipient age), the method used for the poster results is not documented. The options are complete-case exclusion before matching, missing indicators, or imputation.
+**Open:** D4 ([#14](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/14)): handling of missing covariate values. Categorical covariates use an explicit "Missing" level. For continuous covariates (MELD, donor age, recipient age), the method used for the poster results is not documented. The options are complete-case exclusion before matching, missing indicators, or imputation.
 
 ### 6.3 Matching outcomes reported
 
@@ -130,7 +134,7 @@ Evaluated separately for the kidney and the liver graft.
 - **Follow-up** ends at the earliest of graft failure, death, or that organ's last follow-up date. Death before graft failure is censored.
 - **Time:** from that organ's transplant date, in years.
 
-**Decision D5:** whether retransplantation of the organ (`PERS_NEXTTX`) or return to chronic dialysis without a recorded graft failure date also counts as graft failure.
+**Open:** D5 ([#15](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/15)): whether retransplantation of the organ (`PERS_NEXTTX`) or return to chronic dialysis without a recorded graft failure date also counts as graft failure.
 
 ### 7.3 Secondary outcome: hospital length of stay
 
@@ -162,15 +166,15 @@ Evaluated separately for the kidney and the liver graft.
 - Cox models fitted separately within the pre-DAA and post-DAA matched cohorts. Matched sets stay within one era because era is matched exactly.
 - A model with an HIV × era interaction in the full matched cohort, to test for effect modification. The interaction hazard ratio is the ratio of the post-DAA to the pre-DAA hazard ratio.
 
-**Decision D7:** whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance after matching (for example, HBV surface antigen and CMV).
+**Open:** D7 ([#17](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/17)): whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance after matching (for example, HBV surface antigen and CMV).
 
-**Decision D10:** handling of sparse or zero events (for example, liver graft failure in the post-DAA era): report as not estimable, or use Firth's penalized Cox regression.
+**Open:** D10 ([#20](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/20)): handling of sparse or zero events (for example, liver graft failure in the post-DAA era): report as not estimable, or use Firth's penalized Cox regression.
 
 ### 8.5 Length of stay
 
 Compared between groups with the Wilcoxon rank-sum test, because of its right-skewed distribution.
 
-**Decision D6:** whether length of stay is also analysed by regression (negative binomial or log-linear, with standard errors clustered on matched set) as a secondary analysis.
+**Open:** D6 ([#16](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/16)): whether length of stay is also analysed by regression (negative binomial or log-linear, with standard errors clustered on matched set) as a secondary analysis.
 
 ### 8.6 Missing data
 
@@ -192,8 +196,9 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 ## 10. Disclosure control
 
 - All outputs are reviewed against the SRTR data use agreement before they leave the secure environment.
-- **Decision D8:** the small-cell rule for tables, figures, flow diagrams, risk tables and website text, under the exact wording of the SRTR data use agreement (for example, suppressing counts below 11).
 - Figures that show individual people are not published.
+
+**Open:** D8 ([#18](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues/18)): the small-cell rule for tables, figures, flow diagrams, risk tables and website text, under the exact wording of the SRTR data use agreement (for example, suppressing counts below 11).
 
 ## 11. Limitations to address in reporting
 
@@ -222,21 +227,6 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 | STROBE 14–17 | Descriptive data, outcomes, main and other results | 8 |
 | STROBE 18–21 | Discussion, limitations, interpretation, generalizability | 11 |
 | STROBE 22 | Funding; access to code | 8.7 |
-
-## 13. Open decisions
-
-| ID | Decision | Section |
-|---|---|---|
-| D1 | Recipient age threshold: ≥16 years (poster), >16 years, or adults ≥18 years | 4.2 |
-| D2 | HIV classification when one file is positive and the other unknown or not done | 5.1 |
-| D3 | Propensity score covariate set, including recipient race | 6.2 |
-| D4 | Missing continuous covariates in the propensity score | 6.2 |
-| D5 | Whether retransplantation or return to dialysis counts as graft failure | 7.2 |
-| D6 | Whether regression models of length of stay are reported alongside the Wilcoxon test | 8.5 |
-| D7 | Era-specific Cox models: unadjusted only, or also adjusted | 8.4 |
-| D8 | Small-cell disclosure rule under the SRTR data use agreement | 10 |
-| D9 | Whether the liver-only comparison is part of this paper or a separate analysis | 1 |
-| D10 | Sparse or zero events: report as not estimable, or Firth's penalized Cox regression | 8.4 |
 
 ## References
 
