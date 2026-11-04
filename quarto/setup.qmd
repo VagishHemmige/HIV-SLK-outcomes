@@ -6,7 +6,7 @@ format: html
 
 The code in this script imports libraries, initializes constants, and performs other such preparatory work for the main analysis.
 
-```{r, include=FALSE}
+```{r, include=FALSE, eval=TRUE}
 
 #Ensures pipe works
 library(tidyverse)
@@ -85,7 +85,7 @@ conflict_prefer("lag", "dplyr")
 
 The table below lists the required packages along with links to their primary documentation.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, eval=TRUE}
 
 
 libraries_table <- tibble::tibble(

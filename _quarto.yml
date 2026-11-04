@@ -1,11 +1,16 @@
 project:
   type: website
   output-dir: docs
+  # Only the site's pages. Without this list Quarto also renders the root .md
+  # files (analysis-plan.md, ARCHITECTURE.md, ...) as pages outside the
+  # sidebar; they are shown through the Project documents pages instead.
   render:
     - index.qmd
+    - 404.qmd
     - quarto/**
-    
-    
+
+bibliography: references.bib
+
 author:
   - name: Hannah Rosenthal
     affiliations:
@@ -16,52 +21,102 @@ author:
       - Montefiore Medical Center/ Albert Einstein College of Medicine
     email: vahemmig@montefiore.org
 
-
-
 website:
   site-url: https://vagishhemmige.github.io/HIV-SLK-outcomes
   repo-url: https://github.com/VagishHemmige/HIV-SLK-outcomes
+  repo-branch: master
   repo-actions: [edit, issue]
   title: "HIV SLK Outcomes"
+  page-navigation: true
 
+  # Each kind of page has one icon, coloured in styles.css: book = background,
+  # diagram-3 = study design and methods, laptop = R code, clipboard-data =
+  # results, file-earmark-ruled = project documents.
   sidebar:
-    style: "docked"
+    style: docked
+    # Every section starts open, including those inside Code
+    collapse-level: 3
     search: true
     contents:
       - href: index.qmd
-        text: Home  
+        text: Home
+        icon: house
 
-      
-      - section: Setup and helper functions
+      - section: Code
         contents:
-          - href: quarto/setup.qmd
-            text: Setup
-          - href: quarto/functions.qmd
-            text: Functions
+          - section: Setup and helper functions
+            contents:
+              - href: quarto/setup.qmd
+                text: Setup
+                icon: laptop
+              - href: quarto/functions.qmd
+                text: Functions
+                icon: laptop
 
-      - section: Code to create tables and figures
+          - section: Tables and figures
+            contents:
+              - href: quarto/tables.qmd
+                text: Tables
+                icon: laptop
+              - href: quarto/figures.qmd
+                text: Figures
+                icon: laptop
+
+      - section: Project documents
         contents:
-          - href: quarto/tables.qmd
-            text: Tables
-          - href: quarto/figures.qmd
-            text: Figures
+          - href: quarto/analysis-plan.qmd
+            text: Analysis plan
+            icon: file-earmark-ruled
+          - href: quarto/architecture.qmd
+            text: Architecture
+            icon: file-earmark-ruled
+          - href: quarto/agents.qmd
+            text: AGENTS.md
+            icon: file-earmark-ruled
+          - href: quarto/repository-blueprint.qmd
+            text: Repository blueprint
+            icon: file-earmark-ruled
 
+      - href: quarto/about.qmd
+        text: About
+        icon: info-circle
 
+# Each kind of content has one callout, in its kind's colour: Rcode for code,
+# Results for results, Pending for provisional content (added by
+# quarto/_pending.lua).
 custom-callout:
   Rcode:
     icon: true
     icon-symbol: "💻 "
-    color: "pink"
+    color: "#d63384"
+  Results:
+    icon: true
+    icon-symbol: "📊"
+    color: "#198754"
+  Pending:
+    icon: true
+    icon-symbol: "⏳"
+    color: "#f0c400"
 
 filters:
-- custom-callout
+  # Yellow marks for provisional content, and their Pending callout. It runs
+  # before custom-callout, which turns the callout it adds into a styled box.
+  - quarto/_pending.lua
+  - custom-callout
 
 format:
   html:
     theme: cosmo
+    css: styles.css
     toc: true
     code-fold: true
     code-tools: true
     page-layout: full
     code-summary: "Click to show/hide R Code"
 
+# The site shows code; it never runs the analysis. Only these chunks set
+# eval: true: the Setup page's chunks that attach packages and build the
+# package table from text, the Architecture page's chunk that reads
+# ARCHITECTURE.md, and any read_chunk() imports.
+execute:
+  eval: false
