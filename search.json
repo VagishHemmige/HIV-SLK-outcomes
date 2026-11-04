@@ -1,11 +1,111 @@
 [
   {
+    "objectID": "quarto/architecture.html",
+    "href": "quarto/architecture.html",
+    "title": "",
+    "section": "",
+    "text": "Project documentsArchitecture Code",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#overview",
+    "href": "quarto/architecture.html#overview",
+    "title": "",
+    "section": "Overview",
+    "text": "Overview\nThe project compares outcomes after simultaneous liver–kidney (SLK) transplantation in recipients with and without HIV, using SRTR standard analysis files loaded through the separate sRtr package. It works in five stages:\n\nLoad the liver and kidney transplant files and pair each person’s liver and kidney records.\nKeep first SLK transplants, apply exclusions, classify HIV status, and derive analysis variables.\nAdd donor and candidate variables.\nPrepare data for propensity score matching (the matching itself runs outside the repository; see Matching).\nFit Cox and length-of-stay models in the matched cohort and produce tables and figures.\n\nA Quarto website in quarto/ is rendered by .github/workflows/publish.yml and published to the gh-pages branch, which GitHub Pages serves; the local render in docs/ is not committed. Its pages were adapted from another project and do not yet describe this project’s scripts.",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#script-and-object-flow",
+    "href": "quarto/architecture.html#script-and-object-flow",
+    "title": "",
+    "section": "Script and Object Flow",
+    "text": "Script and Object Flow\nR/main.R sources scripts in order, and scripts share objects through the global environment. The diagram shows what main.R sources (solid) and what later steps need but main.R does not source (dashed).\n\n\n\n\n\n\n\n\n\n\n\n\nCurrent state of the pipeline\nmain.R does not run end to end at this commit:\n\nR/functions/functions.R defines helpers, then builds results tables from model objects (cox_main, cox_kidney, cox_liver and others) and fits interaction models from matched_df. Those objects do not exist when main.R sources the file second, so the run stops there.\nR/modeling/modeling.R and R/tables/tables.R do not parse: each contains R Markdown text and chunk fences. main.R does not source modeling.R.\nR/matching/matching.R saves the matching data and stops; the code that reads the matched result back and builds matched_df is inside if (FALSE).\nR/tables/tables.R needs matched_df, the fitted models, and label_list from matched_tables.R, none of which main.R creates.\nmain.R sources R/figures.R, which does not exist; the figures script is R/figures/figures.R.",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#components",
+    "href": "quarto/architecture.html#components",
+    "title": "",
+    "section": "Components",
+    "text": "Components\n\nSetup\nPurpose: Load libraries and define table labels.\nLocation: R/setup.R\nKey symbols: - Libraries for data management, sRtr, strobe and flowchart, MatchIt, survival, MASS, sandwich, lmtest, gtsummary, gt, survminer - conflict_prefer() calls so dplyr::select, filter and lag win - var_labels — named vector of readable labels for table variables\nAnalysis constants (study start year, age threshold, era cut-off, matching settings) are not defined here; they are hard-coded in the scripts that use them.\n\n\nHelper functions\nLocation: R/functions/functions.R\nKey functions: - combine_li_ki_consistent() — harmonizes a field recorded in both the liver and kidney files: positive if one is positive and the other positive or missing, negative likewise, missing when they conflict - recode_sex_FM(), recode_YNU(), recode_PNU(), recode_YNU_to_words(), collapse_donor_race(), make_missing_level() — recoders - make_gtsummary_labels() — converts var_labels for gtsummary - mk_tbl(), clean_labels() — gtsummary regression tables - extract_hiv_row(), extract_interaction(), extract_robust(), format_cox(), fit_cox_capture_warning() — model result extraction and formatting\nThe file also contains analysis code (results-table construction, a gtsave() to the project root, interaction models, and library() calls); see Current state.\n\n\nCohort construction\nLocation: R/primary_data_preparation/\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nScript\nWhat it does\n\n\n\n\nimport.R\nLoads tx_li, tx_ki, donor_deceased, txf_li, txf_ki, malig, immuno, cand_kipa, cand_liin and pra_hist with load_srtr_file(); checks transplant dates are Date and DONOR_ID is present; full-joins liver and kidney records by PERS_ID (suffixes _LI, _KI); keeps pairs transplanted within one day of each other as tx_slkRaw\n\n\nexcluding_prior_transplants.R\nExcludes prior transplants by the CAN_PREV_TX flags and by earlier transplant dates (first_tx); keeps each person’s first SLK; removes same-day duplicate records by a rule applied to graft failure dates; writes the duplicate records to data-private/ for manual review; stops unless one row per PERS_ID remains\n\n\ncombining_liver_kidney_variables.R\nCreates harmonized hypertension, CMV, HCV, HBV core antibody, HBV surface antigen and malignancy variables with combine_li_ki_consistent()\n\n\ncreate_hiv_data_set.R\nCleans REC_HIV_STAT in both files, excludes records positive in one file and negative in the other, and sets HIV_POSITIVE (positive in one file and positive or missing in the other); creates tx_slk_final\n\n\nprocess_slk_data.R\nExcludes different liver and kidney donors, recipients under 16, and kidney–liver–heart or –intestine transplants; derives donor BMI, graft failure and death times, composite transplant and death dates, recipient and donor characteristics, OPTN diagnosis groups, YEAR_TRANSPLANT, ERA (pre-DAA before 2014), MELD/PELD, causes of graft failure, payer, collapsed race and length of stay\n\n\ncreate_liver_only_dataset.R\nStarts a liver-only comparison cohort; writes records to data-private/ for manual review; the rest is inside if (FALSE)\n\n\n\nOutput: tx_slk_final, one row per SLK recipient with _LI and _KI copies of transplant-file fields plus derived variables. The 2005 study-start restriction is not applied here; it is applied in matching.R.\n\n\nAdding donor and candidate data\nLocation: R/add_data/\n\nadd_donor_data.R — sets DONOR_ID from the liver record and left-joins donor_deceased; recodes donor HIV NAT, HIV antibody, HCV and hepatitis B core antibody. A liver-only block is inside if (FALSE).\nadd_candidate_data.R — left-joins cand_kipa on the kidney PX_ID and cand_liin on the liver PX_ID; recodes diabetes, dialysis, BMI, time on dialysis, functional status, and liver candidate yes/no/unknown fields.\n\nBoth joins drop duplicated columns with select(-ends_with(\".y\")) and strip .x suffixes. Neither checks the row count after joining.\nadd_followup_data.R, add_immuno_data.R, add_malignancy_data.R and add_pra_data.R join other SRTR files into separate objects. main.R does not source them.\n\n\nMatching\nLocation: R/matching/matching.R\n\nRestricts tx_slk_final to transplants in 2005 or later and selects the matching and outcome variables as match_df.\nConverts the transplant date to a number for the caliper and gives the serology covariates an explicit \"Missing\" level.\nSaves match_df to data-private/.\nA commented-out block records the matchit() call that was run in a separate session: logistic propensity score on recipient age, sex and race, last MELD, HCV, primary liver and kidney diagnosis, donor age and sex, HBV surface antigen and CMV; nearest neighbour, ratio 1:5, exact on ERA, 365-day caliper on transplant date.\nA disabled block reads the matched result from a file outside the project, joins subclass, weights and distance back to tx_slk_final as matched_df, recodes serologies and sets labels.\n\n\n\nModeling\nLocation: R/modeling/modeling.R (not sourced; does not parse)\nAll Cox models use robust standard errors clustered on subclass.\n\nOverall mortality: unadjusted, HIV × era interaction, and within each era\nDeath-censored kidney and liver graft failure: defines LI_* and KI_* time and event variables, then fits unadjusted, interaction and era-specific models\nProportional hazards checks with cox.zph()\nLength of stay among those discharged alive: negative binomial (unadjusted and with era) and log-linear models with cluster-robust standard errors\nEra-specific mortality models adjusted for HBV surface antigen and CMV\n\nModels with + ERA (cox_main_effects, cox_kidney_era, cox_liver_era) are commented out, but tables/tables.R uses them.\n\n\nTables\nLocation: R/tables/\n\n\n\n\n\n\n\n\nScript\nSourced by main.R\nOutput\n\n\n\n\npre_match_tables.R\nNo\nDonor, recipient and candidate tables of tx_slk_final by HIV status; defines the variable lists used by matched_tables.R\n\n\nmatched_tables.R\nNo\nFull matched-cohort table; defines label_list\n\n\ntables.R\nYes (does not parse)\nCondensed poster table; mortality, kidney and liver graft failure model tables; poster summary and interaction tables; length-of-stay table; adjusted-model text summary\n\n\n\nMost tables are saved to tables/. One is saved to the project root, and the adjusted-model summary is written to a folder outside the project.\n\n\nFigures\nLocation: R/figures/figures.R (main.R sources R/figures.R instead)\n\nKaplan–Meier survival curves by HIV status, overall and within each era, with risk tables, saved to the project root\nLog-rank tests and median survival tables",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#data-flow",
+    "href": "quarto/architecture.html#data-flow",
+    "title": "",
+    "section": "Data Flow",
+    "text": "Data Flow\nSRTR files → tx_merged (all liver–kidney record pairs per person) → tx_slkRaw (SLK pairs) → tx_slk_clean (first SLK, no prior transplants, one row per person) → tx_slk_final (HIV classified, exclusions applied, derived, donor and candidate variables added) → match_df (2005 onward, matching variables) → external matchit() run → matched_df (matched cohort with subclass) → models → tables and figures.",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#configuration",
+    "href": "quarto/architecture.html#configuration",
+    "title": "",
+    "section": "Configuration",
+    "text": "Configuration\n\nData location: sRtr::set_srtr_wd(), called by the person running the analysis before main.R.\nAnalysis settings are hard-coded where used: one-day SLK window (import.R), age ≥ 16, DAA era cut-off at 2014 and multi-organ exclusions (process_slk_data.R), 2005 study start and matching specification (matching.R).\nFile outputs: data-private/ (review extracts and match_df), tables/, the project root, and a folder outside the project.",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#scripts-not-sourced-by-main.r",
+    "href": "quarto/architecture.html#scripts-not-sourced-by-main.r",
+    "title": "",
+    "section": "Scripts Not Sourced by main.R",
+    "text": "Scripts Not Sourced by main.R\n\n\n\nScript\nPurpose\n\n\n\n\nR/abstract.R\nEarlier matched analysis for a conference abstract\n\n\nR/combine_identical.R\nFinds liver and kidney columns with identical values\n\n\nR/data_validation.R\nReviews records with different liver and kidney donors (does not parse)\n\n\nR/misc/primary_diagnosis.R\nLists primary diagnosis codes for categorization\n\n\nR/add_data/add_followup_data.R, add_immuno_data.R, add_malignancy_data.R, add_pra_data.R\nMerges of other SRTR files\n\n\nR/tables/pre_match_tables.R, R/tables/matched_tables.R\nSee Tables\n\n\nR/modeling/modeling.R\nSee Modeling\n\n\nrmd/SLK_1.8.rmd, rmd/SLK_2.8.rmd\nR Markdown notebooks the scripts were split from",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#code-references",
+    "href": "quarto/architecture.html#code-references",
+    "title": "",
+    "section": "Code References",
+    "text": "Code References\n\n\n\n\n\n\n\n\nComponent\nFile\nKey symbols\n\n\n\n\nOrchestration\nR/main.R\n—\n\n\nSetup\nR/setup.R\nvar_labels\n\n\nHelpers\nR/functions/functions.R\ncombine_li_ki_consistent(), make_missing_level(), extract_hiv_row(), extract_interaction(), extract_robust(), format_cox()\n\n\nSLK definition\nR/primary_data_preparation/import.R\ntx_merged, tx_slkRaw\n\n\nExclusions\nR/primary_data_preparation/excluding_prior_transplants.R\nfirst_tx, tx_slk_first, tx_slk_clean\n\n\nHarmonized serologies\nR/primary_data_preparation/combining_liver_kidney_variables.R\nREC_HCV_STAT_COMB, REC_CMV_COMBINED, REC_HBV_SURF_ANTIGEN_COMB\n\n\nHIV status\nR/primary_data_preparation/create_hiv_data_set.R\nHIV_DISCORDANT, HIV_POSITIVE, tx_slk_final\n\n\nDerived variables\nR/primary_data_preparation/process_slk_data.R\nREC_DEATH_yrs, REC_DEATH_BINARY, ERA, MELD_NUM_Last, los_days_inclusive\n\n\nDonor and candidate data\nR/add_data/add_donor_data.R, R/add_data/add_candidate_data.R\nDON_*_RECODED, CAN_*_recode\n\n\nMatching\nR/matching/matching.R\nmatch_df, matched_df, subclass\n\n\nModels\nR/modeling/modeling.R\ncox_main, cox_int, cox_kidney, cox_liver, KI_EVENT, LI_EVENT, nb_los\n\n\nTables\nR/tables/*.R\ntbl_mega, mega_df, label_list\n\n\nFigures\nR/figures/figures.R\nkm_all, km_pre, km_post",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
+    "objectID": "quarto/architecture.html#glossary",
+    "href": "quarto/architecture.html#glossary",
+    "title": "",
+    "section": "Glossary",
+    "text": "Glossary\n\n\n\n\n\n\n\nTerm\nDefinition\n\n\n\n\nSLK\nSimultaneous liver–kidney transplant: a liver and a kidney transplant in the same person within one day\n\n\nDAA era\nPre-DAA: transplant before 2014; post-DAA: 2014 onward (direct-acting antivirals for hepatitis C)\n\n\n_LI, _KI\nSuffixes for fields from the liver and the kidney transplant record after the join\n\n\nPERS_ID\nSRTR person identifier; links liver and kidney records\n\n\nPX_ID\nCandidate registration identifier; links to candidate files\n\n\nTRR_ID\nTransplant recipient registration identifier; links to follow-up files\n\n\nDONOR_ID\nDonor identifier; links to the deceased donor file\n\n\nsubclass\nMatched-set identifier from MatchIt, used to cluster standard errors",
+    "crumbs": [
+      "Project documents",
+      "Architecture"
+    ]
+  },
+  {
     "objectID": "quarto/setup.html",
     "href": "quarto/setup.html",
     "title": "Setup",
     "section": "",
     "text": "The code in this script imports libraries, initializes constants, and performs other such preparatory work for the main analysis.",
     "crumbs": [
+      "Code",
       "Setup and helper functions",
       "Setup"
     ]
@@ -17,6 +117,7 @@
     "section": "Libraries",
     "text": "Libraries\nThe analysis relies on a set of open-source R packages for data management, cohort construction, visualization, and statistical modeling. These libraries were selected based on their stability, community support, and suitability for large-scale longitudinal health data.\n\n\nClick to show/hide R Code\n# Libraries necessary for the analysis\n\n#File import libraries\nlibrary(haven)\nlibrary(readr)\nlibrary(readxl)\n\n#File export libraries\nlibrary(writexl)\n\n#Data management libraries\nlibrary(tidyverse)\nlibrary(labelled)\nlibrary(dplyr)\nlibrary(tidyr)\nlibrary(janitor)\nlibrary(purrr)\nlibrary(lubridate)\nlibrary(conflicted)\n\n#Core library for the SRTR\nlibrary(sRtr)\n\n#Flowchart libraries\nlibrary(strobe)\nlibrary(flowchart)\n\n#Statistical modeling libraries\nlibrary(MatchIt)\nlibrary(survival)\nlibrary(MASS)\nlibrary(sandwich)\nlibrary(lmtest)\n\n\n#Table libraries\nlibrary(gtsummary)\nlibrary(gt)\n\n#Plotting libraries\nlibrary(ggplot2)\nlibrary(survminer)\n\n\n#Use the conflicted package to ensure that the select and filter functions are not superseded\nconflict_prefer(\"select\", \"dplyr\")\nconflict_prefer(\"filter\", \"dplyr\")\nconflict_prefer(\"lag\", \"dplyr\")\n\n\nThe table below lists the required packages along with links to their primary documentation.\n\n\n\n\n\n\n\n\nRequired R Packages\n\n\nLibraries used for data processing, visualization, and statistical modeling\n\n\nCategory\nR package\nDocumentation\n\n\n\n\nFile import\nhaven\nCRAN – haven\n\n\nFile import\nreadr\nCRAN – readr\n\n\nFile import\nreadxl\nCRAN – readxl\n\n\nFile export\nwritexl\nCRAN – writexl\n\n\nData management\ntidyverse\ntidyverse.org\n\n\nData management\nlabelled\nCRAN – labelled\n\n\nData management\ndplyr\nCRAN – dplyr\n\n\nData management\ntidyr\nCRAN – tidyr\n\n\nData management\njanitor\nCRAN – janitor\n\n\nData management\npurrr\nCRAN – purrr\n\n\nData management\nlubridate\nlubridate.tidyverse.org\n\n\nData management\nconflicted\nCRAN – conflicted\n\n\nSRTR-specific\nsRtr\nGitHub – sRtr\n\n\nFlowcharting\nstrobe\nGitHub – strobe\n\n\nFlowcharting\nflowchart\nCRAN – flowchart\n\n\nStatistical modeling\nMatchIt\nCRAN – MatchIt\n\n\nStatistical modeling\nsurvival\nCRAN – survival\n\n\nStatistical modeling\nMASS\nCRAN – MASS\n\n\nStatistical modeling\nsandwich\nCRAN – sandwich\n\n\nStatistical modeling\nlmtest\nCRAN – lmtest\n\n\nTables\ngtsummary\ngtsummary documentation\n\n\nTables\ngt\ngt documentation\n\n\nPlotting\nggplot2\nggplot2.tidyverse.org\n\n\nPlotting\nsurvminer\nCRAN – survminer",
     "crumbs": [
+      "Code",
       "Setup and helper functions",
       "Setup"
     ]
@@ -28,6 +129,7 @@
     "section": "Other portions of the analysis",
     "text": "Other portions of the analysis\n\nAbout: methods, assumptions, and disclosures",
     "crumbs": [
+      "Code",
       "Setup and helper functions",
       "Setup"
     ]
@@ -39,6 +141,7 @@
     "section": "",
     "text": "This script defines the helper functions used across the analysis: harmonizing the liver and kidney copies of a variable, recoding SRTR codes into labels, and turning Cox models into tables of hazard ratios.",
     "crumbs": [
+      "Code",
       "Setup and helper functions",
       "Functions"
     ]
@@ -50,8 +153,53 @@
     "section": "The script",
     "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each function will get its own explanation here.\n\n\nClick to show/hide R Code\n#Functions\n\n\n#From the combining_liver_kidney_variables.R script\ncombine_li_ki_consistent &lt;- function(li, ki,\n                                     pos_codes = c(\"Y\",\"P\",\"1\"),\n                                     neg_codes = c(\"N\",\"0\"),\n                                     unknown_codes = c(\"U\",\"ND\",\"Unknown\",\"\", NA),\n                                     out_pos = NULL,\n                                     out_neg = NULL,\n                                     unknown_out = NA_character_,\n                                     discordant_out = NA_character_) {\n  \n  li_chr &lt;- stringr::str_trim(as.character(li))\n  ki_chr &lt;- stringr::str_trim(as.character(ki))\n  \n  # Clean unknowns\n  li_clean &lt;- ifelse(li_chr %in% unknown_codes, NA_character_, li_chr)\n  ki_clean &lt;- ifelse(ki_chr %in% unknown_codes, NA_character_, ki_chr)\n  \n  if (is.null(out_pos)) out_pos &lt;- pos_codes[1]\n  if (is.null(out_neg)) out_neg &lt;- neg_codes[1]\n  \n  discordant &lt;- (!is.na(li_clean) & !is.na(ki_clean)) &\n    ((li_clean %in% pos_codes & ki_clean %in% neg_codes) |\n       (li_clean %in% neg_codes & ki_clean %in% pos_codes))\n  \n  dplyr::case_when(\n    # Explicit P vs N conflict\n    discordant ~ discordant_out,\n    \n    # Positive if P + (P or NA)\n    (li_clean %in% pos_codes & (is.na(ki_clean) | ki_clean %in% pos_codes)) ~ out_pos,\n    (ki_clean %in% pos_codes & (is.na(li_clean) | li_clean %in% pos_codes)) ~ out_pos,\n    \n    # Negative if N + N OR N + NA\n    (li_clean %in% neg_codes & (is.na(ki_clean) | ki_clean %in% neg_codes)) ~ out_neg,\n    (ki_clean %in% neg_codes & (is.na(li_clean) | li_clean %in% neg_codes)) ~ out_neg,\n    \n    # Everything else\n    TRUE ~ unknown_out\n  )\n}\n\n\n\n# --- helper recoders ---\nrecode_sex_FM &lt;- function(x) {\n  x &lt;- as.character(x)\n  dplyr::recode(x,\n                \"F\" = \"Female\",\n                \"M\" = \"Male\",\n                .default = x\n  )\n}\n\nrecode_YNU_to_words &lt;- function(x) {\n  x &lt;- as.character(x)\n  # combine U + Unknown first\n  x &lt;- dplyr::recode(x, \"Unknown\" = \"U\", .default = x)\n  dplyr::recode(x,\n                \"Y\" = \"Yes\",\n                \"N\" = \"No\",\n                \"U\" = \"Unknown\",\n                .default = x\n  )\n}\n\n\n# SRTR-style donor race codes seen in your table:\ncollapse_donor_race &lt;- function(x) {\n  x &lt;- as.character(x)\n  case_when(\n    is.na(x) ~ \"Missing\",\n    x %in% c(\"8\", \"White\", \"WHITE\") ~ \"White\",\n    x %in% c(\"16\", \"Black or African American\", \"BLACK\") ~ \"Black\",\n    x %in% c(\"2000\", \"Hispanic/Latino\", \"HISPANIC\") ~ \"Hispanic/Latino\",\n    # everything else (Asian, AIAN, NHPI, etc.)\n    TRUE ~ \"Other\"\n  )\n}\n\n\n#Converts a vector of labels into a list object for the gtsummary package\nmake_gtsummary_labels &lt;- function(named_vec) {\n  lapply(names(named_vec), function(v) {\n    as.formula(paste0(v, \" ~ \", shQuote(unname(named_vec[[v]]))))\n  })\n}\n\n\n# Helper: convert NA / \"\" / \" \" to \"Missing\" and return a factor\nmake_missing_level &lt;- function(x, missing_label = \"Missing\") {\n  x &lt;- as.character(x)\n  x &lt;- trimws(x)\n  x[x == \"\"] &lt;- NA\n  x[is.na(x)] &lt;- missing_label\n  factor(x)\n}\n\n#fix variable levels\nrecode_YNU &lt;- function(x) {\n  recode(x,\n         \"Y\" = \"Yes\",\n         \"N\" = \"No\",\n         \"U\" = \"Unknown\",\n         .default = as.character(x))\n}\n\nrecode_PNU &lt;- function(x) {\n  recode(x,\n         \"P\" = \"Positive\",\n         \"N\" = \"Negative\",\n         \"U\" = \"Unknown\",\n         .default = as.character(x))\n}\n\n\n#Table-creating functions\n\n#make a \"make table\" function\nmk_tbl &lt;- function(fit) {\n  tbl_regression(\n    fit,\n    exponentiate = TRUE\n  ) %&gt;%\n    bold_labels() %&gt;%\n    italicize_levels()\n}\n\n#make clean labels function\nclean_labels &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          label = case_when(\n                            label == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n                            label == \"ERAPost-DAA\" ~ \"Post-DAA era (vs Pre-DAA)\",\n                            label == \"HIV_POSITIVE:ERAPost-DAA\" ~ \"HIV × Post-DAA interaction\",\n                            TRUE ~ label\n                          )\n                        )\n    )\n}\n\n\n\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Helper: extract robust HR/CI/p for HIV_POSITIVE\n# Uses vcov(fit) -&gt; robust sandwich when you fit with robust=TRUE + cluster=subclass\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\nextract_hiv_row &lt;- function(fit, label, ne = FALSE) {\n  if (ne) {\n    return(tibble(\n      Outcome = label,\n      `HR (95% CI)` = \"NE\",\n      p = \"\"\n    ))\n  }\n  \n  term &lt;- \"HIV_POSITIVE\"\n  b &lt;- unname(coef(fit)[term])\n  \n  # robust SE from vcov (should be robust due to robust=TRUE + cluster=subclass)\n  V &lt;- vcov(fit)\n  se &lt;- sqrt(unname(V[term, term]))\n  \n  z  &lt;- b / se\n  p  &lt;- 2 * pnorm(-abs(z))\n  \n  hr &lt;- exp(b)\n  lo &lt;- exp(b - 1.96 * se)\n  hi &lt;- exp(b + 1.96 * se)\n  \n  p_fmt &lt;- ifelse(is.na(p), \"\",\n                  ifelse(p &lt; 0.01, \"&lt;0.01\", sprintf(\"%.2f\", p)))\n  \n  tibble(\n    Outcome = label,\n    `HR (95% CI)` = sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi),\n    p = p_fmt\n  )\n}\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Build the mega results table as a dataframe\n# Assumes you already created these Cox fits:\n# cox_main, cox_pre_unadj, cox_post_unadj\n# cox_kidney, cox_kidney_pre, cox_kidney_post\n# cox_liver, cox_liver_pre, cox_liver_post\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\nmega_df &lt;- bind_rows(\n  # Mortality block (overall/pre/post)\n  extract_hiv_row(cox_main,      \"Overall mortality — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_pre_unadj, \"Overall mortality — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_post_unadj,\"Overall mortality — Post-DAA\")%&gt;% mutate(ERA = \"Post-DAA\"),\n  \n  # Kidney graft failure block with event counts in label\n  extract_hiv_row(cox_kidney,      \"Kidney graft failure (28 events; 6 HIV+) — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_kidney_pre,  \"Kidney graft failure (28 events; 6 HIV+) — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_kidney_post, \"Kidney graft failure (28 events; 6 HIV+) — Post-DAA\")%&gt;% mutate(ERA = \"Post-DAA\"),\n  \n  # Liver graft failure block with Post-DAA marked NE\n  extract_hiv_row(cox_liver,     \"Liver graft failure (16 events; 2 HIV+) — Overall\") %&gt;% mutate(ERA = \"Overall\"),\n  extract_hiv_row(cox_liver_pre, \"Liver graft failure (16 events; 2 HIV+) — Pre-DAA\") %&gt;% mutate(ERA = \"Pre-DAA\"),\n  extract_hiv_row(cox_liver_post,\"Liver graft failure (16 events; 2 HIV+) — Post-DAA\", ne = TRUE) %&gt;% mutate(ERA = \"Post-DAA\")\n) %&gt;%\n  # Keep just the outcome group name (without the era suffix) and make a wide table\n  mutate(\n    OutcomeGroup = sub(\" — (Overall|Pre-DAA|Post-DAA)$\", \"\", Outcome)\n  ) %&gt;%\n  select(OutcomeGroup, ERA, `HR (95% CI)`, p) %&gt;%\n  tidyr::pivot_wider(\n    names_from = ERA,\n    values_from = c(`HR (95% CI)`, p),\n    names_glue = \"{.value} ({ERA})\"\n  ) %&gt;%\n  rename(Outcome = OutcomeGroup)\n\n\n\n\n\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n# Render with gt and save\n# ---***---***---***---***---***---***---***---***---***---***---***---***---***---***\n\ngt_tbl &lt;- mega_df %&gt;%\n  gt(rowname_col = \"Outcome\") %&gt;%\n  tab_header(\n    title = md(\"**Cox regression results (matched cohort), overall and stratified by DAA era**\"),\n    subtitle = md(\"HIV-positive vs HIV-negative; robust SEs clustered by matched set (subclass)\")\n  ) %&gt;%\n  tab_source_note(\n    md(\"Kidney graft failure: 28 total events (6 HIV+). Liver graft failure: 16 total events (2 HIV+). Post-DAA liver graft failure: **NE** = not estimable due to sparse/zero events (quasi separation).\")\n  ) %&gt;%\n  tab_options(\n    table.width = pct(80),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngt_tbl\n\ngtsave(gt_tbl, filename = \"cox_mega_table_poster.png\")\n\n#adding interaction term to table\ncox_mort_int &lt;- coxph(\n  Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\ncox_kidney_int &lt;- coxph(\n  Surv(KI_TIME_YRS, KI_EVENT) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\ncox_liver_int &lt;- coxph(\n  Surv(LI_TIME_YRS, LI_EVENT) ~ HIV_POSITIVE * ERA,\n  data = matched_df,\n  robust = TRUE,\n  cluster = subclass\n)\n\nlibrary(dplyr)\nlibrary(survival)\n\nfmt_p &lt;- function(p) {\n  if (is.na(p)) return(NA_character_)\n  if (p &lt; 0.01) return(\"&lt;0.01\")\n  sprintf(\"%.2f\", p)\n}\n\nfmt_hrci &lt;- function(hr, lo, hi) {\n  sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi)\n}\n\n\n\nextract_interaction &lt;- function(fit, outcome_label,\n                                term = \"HIV_POSITIVE:ERAPost-DAA\") {\n  \n  # ---- FORCE NE for liver graft failure (sparse post-DAA events) ----\n  if (outcome_label == \"Liver graft failure (16 events; 2 HIV+)\") {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = \"NE\",\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  # ---- If interaction term not present ----\n  if (!term %in% names(coef(fit))) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  \n  \n  b &lt;- unname(coef(fit)[term])\n  \n  V &lt;- tryCatch(vcov(fit), error = function(e) NULL)\n  if (is.null(V) || !all(term %in% rownames(V))) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  se &lt;- sqrt(unname(V[term, term]))\n  \n  # ---- Guard against infinite / zero / NA SE ----\n  if (!is.finite(se) || is.na(se) || se &lt;= 0) {\n    return(tibble(\n      Outcome = outcome_label,\n      `Interaction HR (95% CI)` = NA_character_,\n      `Interaction p` = NA_character_\n    ))\n  }\n  \n  # ---- Compute HR, CI, p ----\n  hr &lt;- exp(b)\n  lo &lt;- exp(b - 1.96 * se)\n  hi &lt;- exp(b + 1.96 * se)\n  p  &lt;- 2 * pnorm(-abs(b / se))\n  \n  tibble(\n    Outcome = outcome_label,\n    `Interaction HR (95% CI)` = sprintf(\"%.2f (%.2f–%.2f)\", hr, lo, hi),\n    `Interaction p` = ifelse(p &lt; 0.01, \"&lt;0.01\", sprintf(\"%.2f\", p))\n  )\n}\n\n#make table for LOS\nextract_robust &lt;- function(fit, cluster, model_label,\n                           exponentiate = TRUE,\n                           keep_terms = NULL) {\n  \n  ct &lt;- coeftest(fit, vcov = vcovCL(fit, cluster = cluster))\n  \n  df &lt;- tibble(\n    Model    = model_label,\n    term     = rownames(ct),\n    estimate = as.numeric(ct[, 1]),\n    se       = as.numeric(ct[, 2]),\n    p.value  = as.numeric(ct[, ncol(ct)])\n  )\n  \n  if (!is.null(keep_terms)) df &lt;- df %&gt;% dplyr::filter(term %in% keep_terms)\n  \n  df &lt;- df %&gt;%\n    dplyr::mutate(\n      conf.low  = estimate - 1.96 * se,\n      conf.high = estimate + 1.96 * se\n    )\n  \n  if (exponentiate) {\n    df &lt;- df %&gt;%\n      dplyr::mutate(\n        est = exp(estimate),\n        lo  = exp(conf.low),\n        hi  = exp(conf.high),\n        pct = (est - 1) * 100\n      )\n  } else {\n    df &lt;- df %&gt;%\n      dplyr::mutate(\n        est = estimate,\n        lo  = conf.low,\n        hi  = conf.high,\n        pct = NA_real_\n      )\n  }\n  \n  df %&gt;%\n    dplyr::mutate(\n      Predictor = dplyr::case_when(\n        term == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n        term == \"ERAPost-DAA\"  ~ \"Post-DAA era (vs Pre-DAA)\",\n        term == \"(Intercept)\" ~ \"Intercept\",\n        TRUE ~ term\n      ),\n      `Effect (95% CI)` = sprintf(\"%.2f (%.2f, %.2f)\", est, lo, hi),\n      `Approx. % diff`  = ifelse(is.na(pct), NA_character_, sprintf(\"%+.1f%%\", pct)),\n      `p-value` = dplyr::case_when(\n        is.na(p.value) ~ NA_character_,\n        p.value &lt; 0.001 ~ \"&lt;0.001\",\n        TRUE ~ sprintf(\"%.3f\", p.value)\n      )\n    ) %&gt;%\n    dplyr::select(Model, Predictor, `Effect (95% CI)`, `Approx. % diff`, `p-value`)\n}\n\n\n# --- helper: format one cox model nicely ---\n\nformat_cox &lt;- function(fit, model_name = \"Model\") {\n  s &lt;- summary(fit)\n  n &lt;- s$n\n  events &lt;- s$nevent\n  \n  # broom table (robust SEs are already baked into coef(summary(fit)) when robust=TRUE)\n  out &lt;- broom::tidy(fit, exponentiate = TRUE, conf.int = TRUE) %&gt;%\n    mutate(\n      model = model_name,\n      n = n,\n      events = events,\n      # nicer labels\n      term = case_when(\n        term == \"HIV_POSITIVE\" ~ \"HIV positive (vs negative)\",\n        term == \"ERAPost-DAA\" ~ \"Post-DAA (vs Pre-DAA)\",\n        term == \"HIV_POSITIVE:ERAPost-DAA\" ~ \"Interaction: HIV × Post-DAA\",\n        str_detect(term, \"^REC_HBV_SURF_ANTIGEN_COMB\") ~ str_replace(term, \"^REC_HBV_SURF_ANTIGEN_COMB\", \"HBsAg: \"),\n        str_detect(term, \"^REC_CMV_COMBINED\") ~ str_replace(term, \"^REC_CMV_COMBINED\", \"CMV: \"),\n        TRUE ~ term\n      ),\n      hr_ci = sprintf(\"%.2f (%.2f–%.2f)\", estimate, conf.low, conf.high),\n      p_fmt = ifelse(p.value &lt; 0.001, \"&lt;0.001\", sprintf(\"%.3f\", p.value))\n    ) %&gt;%\n    select(model, n, events, term, hr_ci, p_fmt)\n  \n  out\n}\n\n# --- helper: capture warnings while fitting (optional) ---\nfit_cox_capture_warning &lt;- function(expr) {\n  w &lt;- NULL\n  fit &lt;- withCallingHandlers(\n    expr,\n    warning = function(m) {\n      w &lt;&lt;- c(w, conditionMessage(m))\n      invokeRestart(\"muffleWarning\")\n    }\n  )\n  list(fit = fit, warnings = w)\n}",
     "crumbs": [
+      "Code",
       "Setup and helper functions",
       "Functions"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html",
+    "href": "quarto/repository-blueprint.html",
+    "title": "",
+    "section": "",
+    "text": "Project documentsRepository blueprint Code",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html#analytical-scripts",
+    "href": "quarto/repository-blueprint.html#analytical-scripts",
+    "title": "",
+    "section": "Analytical scripts",
+    "text": "Analytical scripts\n\nR/main.R sources definitive scripts in dependency order.\nTypical workflow: setup → cohort construction → processing → modeling → outputs.\nStudy-specific scripts may be grouped into subdirectories by analytical stage.\nR/tables.R and R/figures.R may generate outputs directly or orchestrate specialized scripts.",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html#documentation",
+    "href": "quarto/repository-blueprint.html#documentation",
+    "title": "",
+    "section": "Documentation",
+    "text": "Documentation\n\nDocument definitive analytical scripts with explanatory Quarto pages; exploratory scripts need not have pages.\nUse Cryptococcus-cost-analysis as an example for Quarto supporting files, chunk imports, callouts, and formatting—not scientific methods.\nQuarto source and rendered output locations may vary by project.",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
+    ]
+  },
+  {
+    "objectID": "quarto/repository-blueprint.html#outputs-and-version-control",
+    "href": "quarto/repository-blueprint.html#outputs-and-version-control",
+    "title": "",
+    "section": "Outputs and version control",
+    "text": "Outputs and version control\n\nTrack approved, nonrestricted outputs when useful for publication; otherwise retain them locally and exclude them from Git.\n.gitignore: Exclude restricted data, credentials, caches, temporary files, and generated outputs unless intentionally tracked (e.g., .Rproj.user/, .Rhistory, .RData, .httr-oauth, .quarto/, cache/, figures/, tables/, *.quarto_ipynb); verify exclusions cover actual output paths without hiding necessary source or reference files.",
+    "crumbs": [
+      "Project documents",
+      "Repository blueprint"
     ]
   },
   {
@@ -61,7 +209,8 @@
     "section": "",
     "text": "This script builds the tables for the poster and manuscript from the matched cohort: the recipient and donor characteristics, and the hazard ratios for mortality and for kidney and liver graft failure, overall and by DAA era.",
     "crumbs": [
-      "Code to create tables and figures",
+      "Code",
+      "Tables and figures",
       "Tables"
     ]
   },
@@ -72,7 +221,8 @@
     "section": "The script",
     "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each table will get its own explanation here.\n\n\nClick to show/hide R Code\n# Making condensed table for poster\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    # Sex labels\n    DON_GENDER = recode_sex_FM(DON_GENDER),\n    CAN_GENDER = recode_sex_FM(CAN_GENDER),\n    \n    # Donor race collapsed to match recipient race buckets\n    DON_RACE_collapsed = collapse_donor_race(DON_RACE),\n  ) %&gt;%\n  mutate(\n    # nice ordering for tables\n    DON_GENDER = factor(DON_GENDER, levels = c(\"Female\", \"Male\")),\n    CAN_GENDER = factor(CAN_GENDER, levels = c(\"Female\", \"Male\")),\n    \n    DON_RACE_collapsed = factor(DON_RACE_collapsed,\n                                levels = c(\"White\", \"Black\", \"Hispanic/Latino\", \"Other\", \"Missing\"))\n  ) %&gt;%\n  set_variable_labels(\n    DON_GENDER = \"Donor sex\",\n    DON_RACE_collapsed = \"Donor race\",\n    DON_ANTI_HIV_recode = \"Donor anti-HIV antibody\",\n    \n    CAN_GENDER = \"Recipient sex\",\n    CAN_RACE_collapsed = \"Recipient race\",\n    \n    REC_HBV_ANTIBODY_COMB = \"HBV core antibody\",\n    REC_HBV_SURF_ANTIGEN_COMB = \"HBV surface antigen\",\n    REC_HCV_STAT_COMB = \"HCV serology\",\n    REC_CMV_COMBINED = \"CMV serology\"\n  )\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    # ---- serologies: Unknown -&gt; NA ----\n    REC_HBV_ANTIBODY_COMB     = na_if(REC_HBV_ANTIBODY_COMB, \"Unknown\"),\n    REC_HBV_SURF_ANTIGEN_COMB = na_if(REC_HBV_SURF_ANTIGEN_COMB, \"Unknown\"),\n    REC_HCV_STAT_COMB         = na_if(REC_HCV_STAT_COMB, \"Unknown\"),\n    REC_CMV_COMBINED          = na_if(REC_CMV_COMBINED, \"Unknown\"),\n    \n    # ---- donor anti-HIV: Unknown -&gt; NA ----\n    DON_ANTI_HIV_recode = na_if(DON_ANTI_HIV_recode, \"Unknown\"),\n    \n    # ---- drop unused factor levels ----\n    across(where(is.factor), fct_drop)\n  )\n\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    DON_RACE_collapsed = case_when(\n      DON_RACE %in% c(\"8\", \"White\") ~ \"White\",\n      DON_RACE %in% c(\"16\", \"Black or African American\") ~ \"Black\",\n      DON_RACE %in% c(\"2000\", \"Hispanic/Latino\") ~ \"Hispanic/Latino\",\n      is.na(DON_RACE) ~ NA_character_,\n      TRUE ~ \"Other\"\n    ),\n    DON_RACE_collapsed = factor(\n      DON_RACE_collapsed,\n      levels = c(\"White\", \"Black\", \"Hispanic/Latino\", \"Other\")\n    )\n  )\n\n\nshort_var_list&lt;-c(\"DON_AGE\",\n                  \"DON_GENDER\",\n                  \"CAN_BMI_clean\",\n                  \"REC_AGE_YEARS\",\n                  \"CAN_GENDER\",\n                  \"CAN_RACE_collapsed\",\n                  \"TRANSPLANT_REASON_LI\",\n                  \"TRANSPLANT_REASON_KI_COLLAPSED\",\n                  \"REC_HBV_SURF_ANTIGEN_COMB\",\n                  \"REC_HCV_STAT_COMB\",\n                  \"REC_CMV_COMBINED\",\n                  \"MELD_NUM_Last\"\n)\n\n\n\n#condensed table\ntbl_dat2 &lt;- matched_df %&gt;%\n  dplyr::select(\n    HIV_POSITIVE,\n    all_of(short_var_list)\n  )\n\n# \"self-healing\" labels: only keep labels for vars that exist in tbl_dat\nlabel_list_ok &lt;- label_list[names(label_list) %in% names(tbl_dat)]\n\n\ntab2 &lt;-\n  tbl_dat2 %&gt;%\n  gtsummary::tbl_summary(\n    by = HIV_POSITIVE,\n    missing = \"ifany\",\n    statistic = list(\n      gtsummary::all_continuous() ~ \"{median} ({p25}, {p75})\",\n      gtsummary::all_categorical() ~ \"{n} ({p}%)\"\n    ),\n    label = label_list_ok\n  ) %&gt;%\n  gtsummary::add_p(\n    test = gtsummary::all_categorical() ~ \"fisher.test\",\n    test.args = gtsummary::all_categorical() ~ list(simulate.p.value = TRUE)\n  ) %&gt;%\n  as_gt() %&gt;%\n  gt::cols_label(\n    stat_1 = \"Negative/Unknown\",\n    stat_2 = \"Positive\"\n  ) %&gt;%\n  gt::tab_header(\n    title = \"Characteristics of HIV-positive and HIV-negative SLK recipients (matched cohort)\"\n  )\n\ngt::gtsave(tab2, \"tables/matched_table_condensed_2.png\")\n\n\n\n\n#make tables\n# Kidney graft failure events\nwith(matched_df, table(KI_EVENT, useNA = \"ifany\"))\n# Liver graft failure events\nwith(matched_df, table(LI_EVENT, useNA = \"ifany\"))\n\n# By era (optional)\nwith(matched_df, table(HIV_POSITIVE, KI_EVENT))\nwith(matched_df, table(HIV_POSITIVE, LI_EVENT))\n\n\n#make kidney failure tables\n#clean labels\nt_kid_unadj &lt;- clean_labels(mk_tbl(cox_kidney))\nt_kid_era   &lt;- clean_labels(mk_tbl(cox_kidney_era))\nt_kid_int   &lt;- clean_labels(mk_tbl(cox_kidney_int))\nt_kid_pre   &lt;- clean_labels(mk_tbl(cox_kidney_pre))\nt_kid_post  &lt;- clean_labels(mk_tbl(cox_kidney_post))\n\n#create table\ntbl_kidney_gf &lt;-\n  tbl_merge(\n    tbls = list(\n      t_kid_unadj,\n      t_kid_era,\n      t_kid_int,\n      t_kid_pre,\n      t_kid_post\n    ),\n    tab_spanner = c(\n      \"**Unadjusted**\",\n      \"**Adjusted for ERA**\",\n      \"**HIV × ERA**\",\n      \"**Pre-DAA only**\",\n      \"**Post-DAA only**\"\n    )\n  ) %&gt;%\n  modify_caption(\"**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~ \"Robust standard errors clustered by matched set (subclass).\"\n  )\n\ntbl_kidney_gf\n\n#change table orientation\ntbl_kidney_gf_long &lt;- tbl_stack(\n  tbls = list(t_kid_unadj, t_kid_era, t_kid_int, t_kid_pre, t_kid_post),\n  group_header = c(\n    \"Unadjusted\",\n    \"Adjusted for ERA\",\n    \"HIV × ERA interaction\",\n    \"Pre-DAA only\",\n    \"Post-DAA only\"\n  )\n) %&gt;%\n  modify_caption(\"**Table 2. Cox proportional hazards models for kidney graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(everything() ~ \"Robust standard errors clustered by matched set (subclass).\")\n\ntbl_kidney_gf_long\n\n\n#make liver tables\nt_liv_unadj &lt;- clean_labels(mk_tbl(cox_liver))\nt_liv_era   &lt;- clean_labels(mk_tbl(cox_liver_era))\nt_liv_pre   &lt;- clean_labels(mk_tbl(cox_liver_pre))\nt_liv_post  &lt;- clean_labels(mk_tbl(cox_liver_post))\n\ntbl_liver_gf &lt;-\n  tbl_merge(\n    tbls = list(\n      t_liv_unadj,\n      t_liv_era,\n      t_liv_pre,\n      t_liv_post\n    ),\n    tab_spanner = c(\n      \"**Unadjusted**\",\n      \"**Adjusted for ERA**\",\n      \"**Pre-DAA only**\",\n      \"**Post-DAA only**\"\n    )\n  ) %&gt;%\n  modify_caption(\"**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~\n      \"Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events.\"\n  )\n\ntbl_liver_gf\n\n#change table orientation\ntbl_liver_gf_long &lt;- tbl_stack(\n  tbls = list(t_liv_unadj, t_liv_era, t_liv_pre, t_liv_post),\n  group_header = c(\n    \"Unadjusted\",\n    \"Adjusted for ERA\",\n    \"Pre-DAA only\",\n    \"Post-DAA only\"\n  )\n) %&gt;%\n  modify_caption(\"**Table 3. Cox proportional hazards models for liver graft failure (matched cohort)**\") %&gt;%\n  modify_footnote(\n    everything() ~ \"Robust standard errors clustered by matched set (subclass). Post-DAA estimates may be unstable due to sparse events.\"\n  )\n\ntbl_liver_gf_long\n\n```\n\ntable for poster\n```{r making tables for poster}\nlibrary(gtsummary)\nlibrary(survival)\nlibrary(gt)\n\n# -----------------------------\n# 0) Helper functions\n# -----------------------------\nmk_tbl &lt;- function(fit) {\n  tbl_regression(\n    fit,\n    exponentiate = TRUE,\n    estimate_fun = ~ style_sigfig(.x, digits = 2),   # keeps model output tidy\n    pvalue_fun   = ~ style_pvalue(.x, digits = 2)\n  ) %&gt;%\n    bold_labels()\n}\n\nclean_labels &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          label = case_when(\n                            label == \"HIV_POSITIVE\" ~ \"HIV-positive (vs HIV-negative)\",\n                            TRUE ~ label\n                          )\n                        )\n    )\n}\n\n# Create HR (95% CI) with 2 decimals and keep p-value\nshrink_one &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        # keep only the HIV row\n                        filter(term == \"HIV_POSITIVE\") %&gt;%\n                        mutate(\n                          est_num  = suppressWarnings(as.numeric(estimate)),\n                          low_num  = suppressWarnings(as.numeric(conf.low)),\n                          high_num = suppressWarnings(as.numeric(conf.high)),\n                          \n                          hr_ci = case_when(\n                            !is.na(est_num) ~ sprintf(\"%.2f (%.2f–%.2f)\", est_num, low_num, high_num),\n                            TRUE ~ NA_character_\n                          ),\n                          \n                          p_fmt = case_when(\n                            is.na(p.value) ~ NA_character_,\n                            p.value &lt; 0.01 ~ \"&lt;0.01\",\n                            TRUE ~ sprintf(\"%.2f\", p.value)\n                          )\n                        ) %&gt;%\n                        select(label, hr_ci, p_fmt)\n    ) %&gt;%\n    modify_header(\n      hr_ci ~ \"**HR (95% CI)**\",\n      p_fmt ~ \"**p**\"\n    )\n}\n\n\n# Mark Post-DAA liver graft failure as not estimable (NE)\nmark_ne &lt;- function(tbl) {\n  tbl %&gt;%\n    modify_table_body(~ .x %&gt;%\n                        mutate(\n                          hr_ci = \"NE\",\n                          p_fmt = NA_character_\n                        )\n    )\n}\n\n# -----------------------------\n# 1) Build SMALL tables for each model (overall / pre / post) per outcome\n# -----------------------------\n\n# ---- Mortality ----\nmort_overall &lt;- clean_labels(mk_tbl(cox_main))       %&gt;% shrink_one()\nmort_pre     &lt;- clean_labels(mk_tbl(cox_pre_unadj))  %&gt;% shrink_one()\nmort_post    &lt;- clean_labels(mk_tbl(cox_post_unadj)) %&gt;% shrink_one()\n\ntbl_mort_block &lt;- tbl_merge(\n  tbls = list(mort_overall, mort_pre, mort_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# ---- Kidney graft failure ----\nkid_overall &lt;- clean_labels(mk_tbl(cox_kidney))      %&gt;% shrink_one()\nkid_pre     &lt;- clean_labels(mk_tbl(cox_kidney_pre))  %&gt;% shrink_one()\nkid_post    &lt;- clean_labels(mk_tbl(cox_kidney_post)) %&gt;% shrink_one()\n\ntbl_kid_block &lt;- tbl_merge(\n  tbls = list(kid_overall, kid_pre, kid_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# ---- Liver graft failure ----\nliv_overall &lt;- clean_labels(mk_tbl(cox_liver))      %&gt;% shrink_one()\nliv_pre     &lt;- clean_labels(mk_tbl(cox_liver_pre))  %&gt;% shrink_one()\n\n# Post-DAA liver: quasi separation -&gt; NE\nliv_post &lt;- clean_labels(mk_tbl(cox_liver_post)) %&gt;%\n  shrink_one() %&gt;%\n  mark_ne()\n\ntbl_liv_block &lt;- tbl_merge(\n  tbls = list(liv_overall, liv_pre, liv_post),\n  tab_spanner = c(\"**Overall**\", \"**Pre-DAA**\", \"**Post-DAA**\")\n)\n\n# -----------------------------\n# 2) Stack into the MEGA table + caption/footnote\n# -----------------------------\ntbl_mega &lt;- tbl_stack(\n  tbls = list(tbl_mort_block, tbl_kid_block, tbl_liv_block),\n  group_header = c(\n    \"Overall mortality\",\n    \"Kidney graft failure (28 events; 6 HIV+)\",\n    \"Liver graft failure (16 events; 2 HIV+)\"\n  )\n) %&gt;%\n  modify_caption(\"**Cox regression results (matched cohort), overall and stratified by DAA era**\") %&gt;%\n  modify_footnote(\n    everything() ~ paste(\n      \"Robust SEs clustered by matched set (subclass).\",\n      \"Kidney graft failure: 28 total events (6 HIV+).\",\n      \"Liver graft failure: 16 total events (2 HIV+).\",\n      \"Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation).\"\n    )\n  )\n\ntbl_mega\n\n# -----------------------------\n# 3) Save as PNG for poster\n# -----------------------------\ngt_tbl &lt;- tbl_mega %&gt;%\n  as_gt() %&gt;%\n  tab_options(\n    table.width = pct(100),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngtsave(gt_tbl, filename = \"tables/cox_mega_table_poster.png\")\n\n\n\ninteraction_df &lt;- bind_rows(\n  extract_interaction(cox_mort_int,   \"Overall mortality\"),\n  extract_interaction(cox_kidney_int, \"Kidney graft failure (28 events; 6 HIV+)\"),\n  extract_interaction(cox_liver_int,  \"Liver graft failure (16 events; 2 HIV+)\")\n)\n\n\nmega_df_final &lt;- mega_df %&gt;%\n  left_join(interaction_df, by = \"Outcome\")\n\ngt_tbl &lt;- mega_df_final %&gt;%\n  gt(rowname_col = \"Outcome\") %&gt;%\n  tab_header(\n    title = md(\"**Cox regression results (matched cohort; N=336 total, 56 HIV-positive)**\"),\n    subtitle = md(\"Overall, stratified by DAA era, and HIV × era interaction\")\n  ) %&gt;%\n  tab_source_note(\n    md(\"Post-DAA liver graft failure: NE = not estimable due to sparse/zero due to sparse/zero events (quasi separation). Interaction ratio is the ratio of post-DAA to pre-DAA hazard ratios\")\n  ) %&gt;%\n  tab_options(\n    table.width = pct(80),\n    table.font.size = 11,\n    data_row.padding = px(3)\n  )\n\ngtsave(gt_tbl, \"cox_mega_table_with_interaction.png\")\n\n\n\n\n\n\n\n# ---- build LONG table ----\nlos_long_tbl &lt;- dplyr::bind_rows(\n  extract_robust(\n    nb_los,\n    cluster = los_df$subclass,\n    model_label = \"Negative binomial (unadjusted)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\")\n  ),\n  extract_robust(\n    nb_los_era,\n    cluster = los_df$subclass,\n    model_label = \"Negative binomial (+ ERA)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\", \"ERAPost-DAA\")\n  ),\n  extract_robust(\n    lm_los,\n    cluster = los_df$subclass,\n    model_label = \"Log-linear sensitivity (log LOS, + ERA)\",\n    exponentiate = TRUE,\n    keep_terms = c(\"HIV_POSITIVE\", \"ERAPost-DAA\")\n  )\n)\n\n# ---- render as grouped long table ----\nlos_gt &lt;- los_long_tbl %&gt;%\n  gt(groupname_col = \"Model\") %&gt;%\n  tab_header(title = \"Length of hospital stay (discharged alive): regression results\") %&gt;%\n  cols_label(\n    Predictor = \"Predictor\",\n    `Effect (95% CI)` = \"Ratio (95% CI)\",\n    `Approx. % diff`  = \"Approx. % difference\",\n    `p-value` = \"p-value\"\n  ) %&gt;%\n  tab_source_note(\"Effect estimates are ratios (exp(beta)); robust SEs clustered by matched set (subclass). Outcome: los_days_inclusive.\")\n\nlos_gt\n\n\n\n\n# =========================\n# 2) Create a single clean table (HR (95% CI) + p)\n# =========================\ntab_pre  &lt;- format_cox(cox_pre,  \"Pre-DAA (adjusted)\")\ntab_post &lt;- format_cox(cox_post, \"Post-DAA (adjusted)\")\ntab_int  &lt;- format_cox(cox_int_adj, \"All eras (HIV×ERA + adjusted)\")\n\nall_tabs &lt;- bind_rows(tab_pre, tab_post, tab_int)\n\nprint(all_tabs)\n\n# =========================\n# 3) Export to a text file (easy to email)\n# =========================\nout_dir &lt;- \"~/Desktop/slk_match\"\ndir.create(out_dir, showWarnings = FALSE, recursive = TRUE)\n\ntxt_file &lt;- file.path(out_dir, \"SLK_Cox_PrePost_Interaction_Summary.txt\")\n\nsink(txt_file)\ncat(\"SLK Cox Models (Matched Cohort)\\n\")\ncat(\"=========================================\\n\\n\")\n\ncat(\"NOTE: Models use robust SEs clustered by matched set (subclass).\\n\")\ncat(\"      Matching weights are all 1 (nearest neighbor without replacement).\\n\\n\")\n\nif (length(res_pre$warnings)) {\n  cat(\"Warnings (Pre-DAA model):\\n\")\n  cat(paste0(\"- \", unique(res_pre$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\nif (length(res_post$warnings)) {\n  cat(\"Warnings (Post-DAA model):\\n\")\n  cat(paste0(\"- \", unique(res_post$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\nif (length(res_int$warnings)) {\n  cat(\"Warnings (Interaction model):\\n\")\n  cat(paste0(\"- \", unique(res_int$warnings), collapse = \"\\n\"), \"\\n\\n\")\n}\n\ncat(\"Table: Hazard ratios (95% CI) and p-values\\n\\n\")\nprint(all_tabs, row.names = FALSE)\n\ncat(\"\\n\\n--- Full model output (verbatim) ---\\n\\n\")\ncat(\"\\n[Pre-DAA adjusted model]\\n\")\nprint(summary(cox_pre))\ncat(\"\\n[Post-DAA adjusted model]\\n\")\nprint(summary(cox_post))\ncat(\"\\n[All eras interaction + adjusted model]\\n\")\nprint(summary(cox_int_adj))\n\nsink()\n\nmessage(\"Saved: \", txt_file)\n\n# =========================\n# 4) (Optional) Also export as CSV for quick viewing\n# =========================\ncsv_file &lt;- file.path(out_dir, \"SLK_Cox_PrePost_Interaction_Table.csv\")\nwrite.csv(all_tabs, csv_file, row.names = FALSE)\nmessage(\"Saved: \", csv_file)",
     "crumbs": [
-      "Code to create tables and figures",
+      "Code",
+      "Tables and figures",
       "Tables"
     ]
   },
@@ -153,7 +303,8 @@
     "section": "",
     "text": "This script draws the Kaplan–Meier curves for survival in the matched cohort by HIV status, overall and before and after the DAA era, with risk tables, and runs the log-rank tests.",
     "crumbs": [
-      "Code to create tables and figures",
+      "Code",
+      "Tables and figures",
       "Figures"
     ]
   },
@@ -164,8 +315,163 @@
     "section": "The script",
     "text": "The script\nThe script is shown whole until it is divided into labelled sections, when each figure will get its own explanation here.\n\n\nClick to show/hide R Code\n#Figures\n\n# Make KM curves -- overall, pre and post DAA\n\n# Ensure HIV is a factor with nice labels\n\nmatched_df &lt;- matched_df %&gt;%\n  mutate(\n    HIV_LABEL = factor(\n      HIV_POSITIVE,\n      levels = c(0, 1),\n      labels = c(\"HIV Negative\", \"HIV Positive\")\n    )\n  )\n\n# Make ERA a factor with consistent order\nmatched_df$ERA &lt;- factor(matched_df$ERA, levels = c(\"Pre-DAA\", \"Post-DAA\"))\n\n#Overall KM curve with risk table \nkm_all &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)\n\np_all &lt;- ggsurvplot(\n  km_all,\n  data = matched_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Overall survival after SLK (HIV+ vs HIV-)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_all)\n\n# Save (curve + risk table together)\ng_all &lt;- arrange_ggsurvplots(list(p_all), print = FALSE)\n\nggsave(\n  filename = \"KM_overall.png\",\n  plot     = g_all,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n#Pre DAA KM curve with risk table\npre_df &lt;- matched_df %&gt;% filter(ERA == \"Pre-DAA\")\n\nkm_pre &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)\n\np_pre &lt;- ggsurvplot(\n  km_pre,\n  data = pre_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Survival after SLK (Pre-DAA era, 2005-2013)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_pre)\n\n# Save (curve + risk table together)\ng_all_pre &lt;- arrange_ggsurvplots(list(p_pre), print = FALSE)\n\nggsave(\n  filename = \"KM_pre_DAA.png\",\n  plot     = g_all_pre,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n\n#Post DAA KM Plot\npost_df &lt;- matched_df %&gt;% filter(ERA == \"Post-DAA\")\n\nkm_post &lt;- survfit(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)\n\np_post &lt;- ggsurvplot(\n  km_post,\n  data = post_df,\n  risk.table = TRUE,\n  risk.table.height = 0.28,\n  pval = TRUE,\n  conf.int = TRUE,\n  xlab = \"Years post-transplant\",\n  ylab = \"Survival probability\",\n  title = \"Survival after SLK (Post-DAA era, 2014-2023)\",\n  legend.title = \"\",\n  legend.labs = c(\"HIV Negative\", \"HIV Positive\"),\n  break.time.by = 2\n)\n\nprint(p_post)\n\n# Save (curve + risk table together)\ng_all_post &lt;- arrange_ggsurvplots(list(p_post), print = FALSE)\n\nggsave(\n  filename = \"KM_post_DAA.png\",\n  plot     = g_all_post,\n  width    = 15,\n  height   = 7,\n  dpi      = 300\n)\n\n#Log-Rank tests\nlr_all  &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = matched_df)\nlr_pre  &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = pre_df)\nlr_post &lt;- survdiff(Surv(REC_DEATH_yrs, REC_DEATH_BINARY) ~ HIV_POSITIVE, data = post_df)\n\nlr_all\nlr_pre\nlr_post\n\n#median survival tables \nsummary(km_all)$table\nsummary(km_pre)$table\nsummary(km_post)$table\n\n#median survival tables\n\n# Overall\nkm_all_tbl &lt;- as.data.frame(summary(km_all)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Overall\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Pre-DAA\nkm_pre_tbl &lt;- as.data.frame(summary(km_pre)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Pre-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Post-DAA\nkm_post_tbl &lt;- as.data.frame(summary(km_post)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Post-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\n# Combine + clean\nkm_median_tbl &lt;- dplyr::bind_rows(\n  km_all_tbl,\n  km_pre_tbl,\n  km_post_tbl\n) %&gt;%\n  dplyr::mutate(\n    median_fmt = ifelse(\n      is.na(median),\n      \"Not reached\",\n      sprintf(\"%.2f\", median)\n    ),\n    CI = ifelse(\n      is.na(median),\n      \"—\",\n      paste0(sprintf(\"%.2f\", `0.95LCL`), \", \", sprintf(\"%.2f\", `0.95UCL`))\n    )\n  ) %&gt;%\n  dplyr::select(\n    Era,\n    HIV,\n    N = records,\n    Events = events,\n    `Median survival (years)` = median_fmt,\n    `95% CI` = CI\n  )\n\nkm_median_tbl\n\n\nkm_all_tbl &lt;- as.data.frame(summary(km_all)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Overall\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_pre_tbl &lt;- as.data.frame(summary(km_pre)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Pre-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_post_tbl &lt;- as.data.frame(summary(km_post)$table) %&gt;%\n  tibble::rownames_to_column(\"Group\") %&gt;%\n  dplyr::mutate(\n    Era = \"Post-DAA\",\n    HIV = if_else(grepl(\"=1\", Group), \"HIV-positive\", \"HIV-negative\")\n  )\n\nkm_median_tbl &lt;- dplyr::bind_rows(km_all_tbl, km_pre_tbl, km_post_tbl) %&gt;%\n  dplyr::mutate(\n    median_fmt = ifelse(is.na(median), \"Not reached\", sprintf(\"%.2f\", median)),\n    CI = ifelse(\n      is.na(median),\n      \"—\",\n      paste0(sprintf(\"%.2f\", `0.95LCL`), \", \", sprintf(\"%.2f\", `0.95UCL`))\n    )\n  ) %&gt;%\n  dplyr::select(\n    Era,\n    HIV,\n    N = records,\n    Events = events,\n    `Median survival (years)` = median_fmt,\n    `95% CI` = CI\n  )\n\n# Print as a clean, copyable text table\nprint(knitr::kable(km_median_tbl, format = \"simple\"))",
     "crumbs": [
-      "Code to create tables and figures",
+      "Code",
+      "Tables and figures",
       "Figures"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html",
+    "href": "quarto/agents.html",
+    "title": "",
+    "section": "",
+    "text": "Project documentsAGENTS.md Code",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#the-project",
+    "href": "quarto/agents.html#the-project",
+    "title": "",
+    "section": "The project",
+    "text": "The project\nThis repository compares mortality and graft outcomes after simultaneous liver–kidney (SLK) transplantation between recipients with and without HIV. It uses Scientific Registry of Transplant Recipients (SRTR) standard analysis files, and it publishes its code and methods as a Quarto website.\n\nanalysis-plan.md is the source of truth for design. It covers the cohort, exposure, era, matching, outcomes, models, and sensitivity analyses. Code implements the plan; it does not redefine it.\n\nThe plan contains no code: no scripts, functions, objects, packages beyond those named as methods, or descriptions of what the code currently does. Rules for the code go in this file, a description of the code in ARCHITECTURE.md, and gaps between the code and the plan in Issues. SRTR variable names are data definitions and may appear in the plan.\nPlan changes are tracked in git, not in a change log inside the plan. Commit each design change on its own, with a message that gives the reason and says whether any results that depend on it had already been seen.\n\nOpen decisions. The plan lists open design choices as Decision Dn in its “Open decisions” table, each with a decision issue. Do not settle one in code. Until it is settled, the code keeps the behaviour that produced the poster results and says so in a comment that names the decision. If the code needs to depart from the plan, open a decision issue, or comment on the existing one. Once the decider has settled it (in the issue, or relayed there in his exact words), the plan change and the code can go in the same pull request, which closes the issue.\nDecider. Scientific decisions are made by Vagish Hemmige. Anyone may open or contribute to a decision issue; only the decider settles it (see “Working with agents”).\nThis is an analysis project, not an R package, even though the scripts live in R/ and there is an .Rbuildignore. Do not add DESCRIPTION, NAMESPACE, roxygen, or pkgdown infrastructure. Do not apply CRAN conventions.\nDefault branch: master, protected. Changes reach it only through pull requests.\nImplementation status lives in GitHub Issues, not in these files. When you find a gap between the code and the plan, or a defect, open or update an issue. Reference the issue in the pull request that closes it.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#data-sources",
+    "href": "quarto/agents.html#data-sources",
+    "title": "",
+    "section": "Data sources",
+    "text": "Data sources\nEach source this project uses is listed below with the package that accesses it. Code that touches a source goes through its package. Do not write project-specific loading, cleaning, or definition code for something the package already does.\n\n\n\nSource\nAccessed through\nPackage documentation\nPackage maintained by\nAccess\nWhat AI agents may do\n\n\n\n\nSRTR standard analysis files (record the release used for any result)\nsRtr::load_srtr_file()\nsRtr\nThis team\nRestricted under the SRTR data use agreement (DUA)\nNone: code, documentation and synthetic data only\n\n\n\nTo allow more for a source, a person changes its row through a pull request, naming the agreement and section that permit it, the approved AI service, and exactly what agents may do. Agents never propose or make this change themselves, and nothing in personal instructions can grant it.\nsRtr is the first place to look for anything that touches SRTR files: loading files (load_srtr_file()), labels and factors (apply_srtr_varlabels(), apply_srtr_factors()), missing-value codes (srtr_normalize_missing()), composite death dates (srtr_composite_death()), time-to-event variables (srtr_time_to_event()), and follow-up outcomes (add_txf_outcomes()).\n\nRead its documentation before writing code for a source, including known issues. Behaviour that sets the cohort, the exposure, an outcome, or a denominator is checked in the documentation, not assumed from a function’s name. Use an existing function, or extend it.\nProblems belong in the package. If an sRtr function is wrong, or does almost but not exactly what the plan needs, open an issue in the sRtr repository rather than documenting it here. Then fix it there, or wrap it in this project with a code comment that links the issue. Remove the wrapper when the issue is fixed.\nFacts about SRTR belong in sRtr’s documentation. If sRtr lacks something this project needs to know, add it there or open an issue there. The “SRTR data facts” below stay here until sRtr documents them.\nBefore replacing project code with an sRtr function, confirm it gives identical results on synthetic data. For example, srtr_time_to_event() adds one day to times by default, and the project’s mortality times do not.\nRecord the sRtr version (or commit) used for any result.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#srtr-data-facts",
+    "href": "quarto/agents.html#srtr-data-facts",
+    "title": "",
+    "section": "SRTR data facts",
+    "text": "SRTR data facts\nSource: the SRTR standard analysis file data dictionary, as bundled in sRtr (sRtr::dictionary, built from data-raw/dataDictionary.html). Check these against the release you are using.\nOne SLK transplant appears twice. It has a record in the liver file (tx_li) and one in the kidney file (tx_ki), each with its own TRR_ID and PX_ID, linked by PERS_ID. After the join, the same field carries an _LI or _KI suffix. The two copies of a field can disagree; harmonize them with a documented rule (combine_li_ki_consistent() for serologies), never by silently preferring one file.\nIdentifiers.\n\n\n\n\n\n\n\n\nField\nIdentifies\nUsed to join\n\n\n\n\nPERS_ID\nPerson\nLiver to kidney transplant records\n\n\nPX_ID\nCandidate registration\nTransplant to candidate files (cand_kipa, cand_liin)\n\n\nTRR_ID\nTransplant recipient registration\nTransplant to follow-up files (txf_li, txf_ki)\n\n\nDONOR_ID\nDonor\nTransplant to donor_deceased\n\n\n\nDates and status.\n\nREC_TX_DT: transplant date. REC_DISCHRG_DT: transplant discharge date.\nTFL_GRAFT_DT: graft failure date. TFL_LAFUDATE: last graft follow-up date. TFL_DEATH_DT: date patient died, from follow-up.\nPERS_OPTN_DEATH_DT: OPTN death date by person. PERS_SSA_DEATH_DT: death date from the Social Security Administration.\nPERS_NEXTTX: date of the person’s next transplant.\nREC_TX_ORG_TY: the organ types involved in the transplant, as text.\nCAN_PREV_TX: previous transplants. REC_HIV_STAT: HIV serology status.\nCAN_LAST_SRTR_LAB_MELD and CAN_LAST_SRTR_LAB_MELD_TY: last SRTR MELD/PELD score and its type (MELD or PELD).\n\nCoded values. With factor_labels = TRUE, coded fields become text of the form \"&lt;code&gt;: &lt;label&gt;\" (for example, \"16: Black\"). Code that matches on these strings breaks if the labels change between releases, so match on the numeric code where you can.\nUnclear variables. If a variable’s meaning is unclear, check the data dictionary and the SRTR documentation for the release. Do not guess from the name.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#exploration-and-definitive-analysis",
+    "href": "quarto/agents.html#exploration-and-definitive-analysis",
+    "title": "",
+    "section": "Exploration and definitive analysis",
+    "text": "Exploration and definitive analysis\nExploration is welcome on branches, or in R/exploratory/, which main.R never sources. Exploratory scripts need not have Quarto pages, and their findings are labelled preliminary. Exploration code does not stay in pipeline scripts. A script becomes part of the definitive analysis when it is sourced from R/main.R; from then on every rule below applies to it.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#r-scripts",
+    "href": "quarto/agents.html#r-scripts",
+    "title": "",
+    "section": "R scripts",
+    "text": "R scripts\n\nRunning the analysis. Open the .Rproj and run R/main.R from the project root. main.R sources the other scripts in dependency order; ARCHITECTURE.md describes what each does.\nOne job per script. Scripts are grouped by stage: R/primary_data_preparation/ (import and cohort construction), R/add_data/ (merging candidate and donor files), R/matching/, R/modeling/, then R/tables.R and R/figures.R. When you add a definitive script, in the same pull request:\n\nsource it from main.R (or from tables.R or figures.R) at the right point\nadd its Quarto page\nupdate ARCHITECTURE.md\n\nHeader comment. Each script begins with a comment saying what it does, which objects it needs from earlier scripts, and what it produces.\nConstants, libraries, and code lists live in R/setup.R. Other scripts do not call library(), re-source setup.R, or hard-code values. Any number a reader might want to change, such as the study start year, the era cut-off, the age threshold, the matching ratio, the caliper, or the seed, is a named constant in setup.R.\nHelper functions go in R/functions.R, sourced after setup.R. functions.R defines functions only; it never runs analysis code. A function takes its inputs as arguments and does not read global objects, including through default arguments.\nNo side effects outside the project. Do not use setwd(), absolute paths, ~/ paths, or writes outside the project. Locate data only through sRtr::set_srtr_wd(), called by the person running the analysis, not in committed code.\nNo results in the repository. No script (exploratory or definitive), comment, commit message, issue, pull-request text or review report contains results, counts or data values from SRTR data unless they are cleared for release. Check before every commit and post, since this public repository publishes everything pushed to it, on any branch.\nLegacy code. rmd/SLK_1.8.rmd and rmd/SLK_2.8.rmd are the R Markdown notebooks the pipeline was split from. They are not run and are kept for reference only. Do not build on them.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#chunk-labels",
+    "href": "quarto/agents.html#chunk-labels",
+    "title": "",
+    "section": "Chunk labels",
+    "text": "Chunk labels\nScripts are divided into labelled sections, so that Quarto pages can show the code without copying it:\n## ---- exclude-prior-transplants\n\nEvery logical step has a label. A label covers the code from its line to the next label.\nLabels are kebab-case, describe the step, and are unique across all scripts. Quarto pulls chunks by label, so a duplicate label silently picks up the wrong code.\nRenaming or deleting a label breaks the Quarto page that uses it. Search the .qmd files before you change one.\nScripts must still run end to end through main.R. Labels are comments and must never change what the code does.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#variable-labels",
+    "href": "quarto/agents.html#variable-labels",
+    "title": "",
+    "section": "Variable labels",
+    "text": "Variable labels\n\nLabel analysis variables with human-readable descriptions, for example with labelled::set_variable_labels(). Tables then show readable names without renaming code by hand.\nFor SRTR variables, load files with load_srtr_file(..., factor_labels = TRUE, var_labels = TRUE) and use apply_srtr_varlabels() and apply_srtr_factors() rather than writing labels by hand.\nLabel each derived variable where it is created. Include units and the source fields where they apply (for example, “Time to death or censoring from composite transplant date, years”).",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#quarto-website",
+    "href": "quarto/agents.html#quarto-website",
+    "title": "",
+    "section": "Quarto website",
+    "text": "Quarto website\nThe Quarto site documents the code. It does not run the analysis.\n\nSetup files: _quarto.yml, index.qmd, 404.qmd (the page GitHub Pages shows for a missing address) and styles.css sit at the root. There is one page per pipeline script in quarto/, named after the script (for example, quarto/process_slk_data.qmd for R/primary_data_preparation/process_slk_data.R), plus the project-document and About pages. The custom-callout extension in _extensions/ provides the Rcode, Results and Pending callouts.\nVisual cues. Each kind of page has one sidebar icon, coloured by styles.css, and pages mark the same kind of content with the callout of that colour: background book (blue); study design and methods diagram-3 (orange); R code laptop (pink, Rcode 💻); results clipboard-data (green, Results 📊); project documents file-earmark-ruled (grey). Give every new page the icon of its kind.\nProvisional content. quarto/_pending.lua highlights in yellow every paragraph that starts with Decision pending: or, in the plan, Open:, and any [text]{.pending}, and adds a ⏳ Pending callout to pages that have a mark. Mark only what an open decision could change, and remove the mark when the decision is settled.\nProject documents. analysis-plan.md, ARCHITECTURE.md, AGENTS.md and REPOSITORY-BLUEPRINT.md are shown on the site by pages in quarto/ that only include the root file, which stays the one source: edit the root file, not the page.\nShowing code: each page loads its script with knitr::read_chunk() in a hidden chunk. It then shows each labelled section in a chunk with #| eval: false, with prose explaining what the section does and why. Until a script is divided into labelled sections, its page may show the whole script with #| file: and eval: false. Pages link to the script on GitHub and to the scripts it depends on.\nNever evaluate analysis code in the site. Pages must render without SRTR data. _quarto.yml sets eval: false for every chunk; only the read_chunk() imports, the Setup page’s chunks that attach packages and build its package table from text, and the Architecture page’s chunk that reads ARCHITECTURE.md set eval: true. The rendered site therefore contains code and explanation only, never results. The one exception is the poster on the home page, which was already approved for public release.\nRendering: the site renders to docs/, which is not committed. .github/workflows/publish.yml renders it on every pull request as a check and, on each push to master, publishes it to the gh-pages branch, which GitHub Pages serves. Render locally to preview a change to a script’s labels or a page’s prose, but do not commit the output.\nNew scripts: when you add a script, add its page and its sidebar entry in _quarto.yml in the same pull request.\nProse must match the code. If a change alters what a section does, update that section’s explanation in the same pull request.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#outputs",
+    "href": "quarto/agents.html#outputs",
+    "title": "",
+    "section": "Outputs",
+    "text": "Outputs\n\nExported files: tables and figures are exported by R/tables.R and R/figures.R to tables/ and figures/. Both folders are gitignored until they are cleared for release under the disclosure rules below, because their contents are results from SRTR data. Agents may not open them (see Restricted data).\nIntermediate files that must be written (for example, records exported for manual review) go in data-private/, which is gitignored. The pipeline must not depend on a file someone edited by hand; encode the decision made from a manual review as a reproducible rule in code, with a comment explaining it.\nFigures need alt text when they are published.\nREADME.Rmd is the source of README.md. Edit the .Rmd and re-knit; do not edit README.md directly.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#restricted-data-applies-to-everyone",
+    "href": "quarto/agents.html#restricted-data-applies-to-everyone",
+    "title": "",
+    "section": "Restricted data (applies to everyone)",
+    "text": "Restricted data (applies to everyone)\nThe Access column of “Data sources” says which sources are restricted. SRTR data are covered by the SRTR data use agreement (DUA). The rules below apply to people and agents alike.\n\nNever commit data. That includes SRTR files, extracts, and any saved R object or output derived from patient-level data (.rds, .RData, .sas7bdat, .parquet, .csv, .xlsx, and the like). Keep data outside the repository, and check .gitignore before adding a new output type.\nNo patient-level values in code or comments. Do not write identifiers (PERS_ID, PX_ID, TRR_ID, DONOR_ID), dates, or counts from the data into scripts or comments. Code must not print identifiers or rows of patient-level data; checks use stopifnot() or stop() rather than printing.\nAI agents never read restricted data. Anything an agent opens, prints, or summarizes is sent to the model provider. Agents therefore do not:\n\nopen data files or patient-level objects\nprint rows or head() of them\ndisplay identifiers, person-level dates, or individual records\nopen outputs from SRTR data that are not yet cleared for release (for example tables/ and figures/ while they are gitignored)\n\nAgents write code, review it, and run it on synthetic data that mimics the column names and types. Results on real data are produced by an authorized person. The only exception is what the “Data sources” table explicitly allows for a source, and only within those words.\nUse synthetic data for development and tests. Build small synthetic data frames in code, label them clearly as synthetic, and never derive them from real records.\nDisclosure. Check every table, figure, flowchart box, risk table, and piece of text before it leaves the secure environment, against the exact wording of the SRTR DUA. This includes scripts, comments, commit messages, issues, pull-request text and review reports. The small-cell rule is open decision D8 in the plan; until it is settled, ask the maintainer before releasing any count below 11. Figures that plot individual people are not published.\nCredentials and paid APIs. Never commit keys, tokens, or .Renviron. Ask before paid, bulk, or uncached API calls. Which model or service version to use is the person’s choice; an agent proposes, with the cost if known, and does not switch it on its own.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#coding-conventions",
+    "href": "quarto/agents.html#coding-conventions",
+    "title": "",
+    "section": "Coding conventions",
+    "text": "Coding conventions\n\nFlowchart labels and text are built from the constants in setup.R, not hard-coded. For example, a label that says “2005 or later” or “age 16 or older” goes stale when the constants change.\nCohort flow uses the flowchart package (as_fc(), fc_filter(), fc_draw()). Every exclusion goes through fc_filter(), in the plan’s order. Never drop rows from $data outside the flowchart; the diagram must reproduce the cohort exactly. Record-level processing (harmonizing liver and kidney copies, choosing among a person’s records) is fine. An analysis that uses fewer people than the cohort (complete cases, a subgroup) reports its own number with that analysis. The cohort used downstream is the data from the final flowchart step.\nMatching\n\nMatching runs inside the pipeline and is reproducible from the seed in setup.R. Control selection must not depend on row order.\nThe matched-set identifier (subclass) is kept as an ordinary column through to every model, so models can cluster on it.\nReport the number of HIV-positive recipients with each number of matched controls, including zero, and balance (standardized mean differences) before and after matching.\n\nJoins\n\nUse join_by() with an explicit relationship where you can.\nAfter every join of a supplementary file (candidate, donor, follow-up) to the cohort, assert that it did not multiply rows.\nDecide deliberately what happens to people with no match: keep them, exclude them through a flowchart step, or stop with an error.\nAvoid select(-ends_with(\".y\")) after a join; it silently keeps one copy of a duplicated column. Select the columns you need from the supplementary file before joining.\n\nCode lists (diagnosis or organ codes, for example) carry each code’s meaning and the dictionary release it was checked against. Check every code against the SRTR data dictionary. Never invent codes, variables, files, or definitions.\nDates and times\n\nCompute times from Date columns with difftime(..., units = \"days\"), and state the conversion to years (365.25 days).\nDeath-censored outcomes end at the earliest of event, death, and last follow-up; test the edges on synthetic data.\n\nModels. Keep code that formats model results (hazard ratios, intervals, p-values) in named functions in R/functions.R, and test them on synthetic data with a known answer. Table labels such as event counts are computed from the data, never typed in.\nPackage APIs. Read the help page and NEWS for the installed version before calling a package; don’t write calls from memory. A test that fakes a package checks only our own logic, so call the real package once (on synthetic data) before relying on the code.\nStyle: readable for a clinician-analyst who learned R from online guides: pipes and dplyr/tidyr verbs, case_when() rather than nested if, and loops over names or named lists rather than the apply family, Reduce() or positional indexing. Where base R is required, keep it in a named, tested function with a comment saying why. Follow the tidyverse style guide. Style changes go in their own commits, separate from changes that alter analytical behaviour.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#checks-for-any-change",
+    "href": "quarto/agents.html#checks-for-any-change",
+    "title": "",
+    "section": "Checks for any change",
+    "text": "Checks for any change\nBefore opening a pull request, check the items below that apply to your change.\nPlan and data sources\n\nDoes the change implement the plan as written, and does it leave every open decision open?\nDoes it use sRtr’s functions where they exist, and does their documented behaviour match what the plan needs?\nFor new or changed calls to a package, does the pull request name the installed version and the help page or NEWS entry relied on?\n\nCohort construction\n\nDo the order, the denominator, and the labels of each flowchart step match the condition it applies?\nCan each count be reproduced from the code?\nIs the downstream cohort the data from the final flowchart step?\nIs there exactly one row per PERS_ID after the duplicate steps?\n\nExposure, era and covariates\n\nIs HIV status classified as the plan states (Section 5.1, D2)?\nAre liver and kidney copies of each covariate harmonized by a documented rule?\nIs every covariate measured at or before transplant?\n\nMatching\n\nDoes the propensity score model contain exactly the covariates in the plan (Section 6.2, D3)?\nAre era exact matching, the transplant-date caliper, and the ratio taken from setup.R?\nIs matching reproducible from the seed, and independent of row order?\nAre unmatched and partially matched HIV-positive recipients counted and reported?\n\nOutcomes\n\nDoes follow-up for mortality start at the composite transplant date and end at death or the latest last follow-up date?\nAre graft failure outcomes death-censored, starting at that organ’s transplant date?\nAre recipients who died before discharge excluded from length of stay?\n\nModels and reported numbers\n\nDoes every Cox model use robust standard errors clustered on subclass?\nDoes each estimate match the plan’s estimand, and do the tables, figures, and website prose say what the model actually estimates?\nAre event counts and sample sizes in labels computed, not typed?\n\nStructure and documentation\n\nIs ARCHITECTURE.md current for the scripts and data flow this change touches?\nAre the chunk labels unique, and does each script’s Quarto page still find every label it uses?\nDoes every pipeline script have a Quarto page and a sidebar entry, and does the pull request’s render check pass?\nDoes any site chunk run analysis code? Only the chunks listed under “Quarto website” set eval: true.\nAre new derived variables labelled?\n\nDisclosure\n\nSearch every changed tracked file, and the commit messages and pull-request text, for dates, record IDs, names, absolute paths and numbers that could come from SRTR data. Read each hit in context; legitimate ones (plan dates, the decider’s name, synthetic examples) stay.\n\nExecution\n\nDoes main.R run from a clean session (Ctrl+Shift+F10 in RStudio, then source main.R), with no objects left over from earlier work?\nAre paths relative, with no hard-coded data directories?\nAre package versions recorded (sessionInfo(), and the sRtr commit)?\n\nValidation on real data (run by an authorized person; report only aggregate, disclosure-checked results)\n\ncounts at each flowchart step, compared with the poster and manuscript\nrow counts before and after each join of a supplementary file\nthe number of HIV-positive recipients with 5, 4, 3, 2, 1 and 0 matched controls\nstandardized mean differences before and after matching\nevents by group for each outcome, overall and by era",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
+    ]
+  },
+  {
+    "objectID": "quarto/agents.html#working-with-agents",
+    "href": "quarto/agents.html#working-with-agents",
+    "title": "",
+    "section": "Working with agents",
+    "text": "Working with agents\n\nAutonomy. The person directing an agent sets its working style (review only, step by step, or hands-off) in their own instructions, and may add stricter rules; those take precedence over this section. Without a style, an agent works step by step. At most, an agent may:\n\nedit code and documentation\nadd scripts and tests\nrun code and render the site on synthetic data\ncommit to a branch and open a pull request\n\nCollaborators: master is protected. Changes reach it only through a pull request that the maintainer reviews.\nDecisions. Anyone, including an agent, may add options and evidence to a decision issue. The decider states the choice in the issue. Agents implement decisions; they never choose among options on their own, in the issue, the plan, or the code.\nEvery agent, under any level of autonomy:\n\nnever merges a pull request\nfollows the restricted-data rules above\nasks before any step that would read real data, run the full pipeline, or make expensive calls\nshows a person the exact text before posting or sending anything as them, unless that person’s own instructions waive this\nproposes another way of writing something already agreed before committing it\n\nKeep pull requests focused. In each one, state which section of the plan or which issue it addresses, and what was checked. Say whether it was checked on synthetic data or by reading only. Never describe synthetic results as results.\nFor references, use the SRTR data dictionary and documentation, and PubMed. Cite what you used, and verify every citation (authors, journal, year, DOI) against PubMed before adding it to references.bib.",
+    "crumbs": [
+      "Project documents",
+      "AGENTS.md"
     ]
   },
   {
@@ -173,6 +479,174 @@
     "href": "quarto/about.html",
     "title": "About",
     "section": "",
-    "text": "Pending"
+    "text": "Pending",
+    "crumbs": [
+      "About"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html",
+    "href": "quarto/analysis-plan.html",
+    "title": "",
+    "section": "",
+    "text": "Project documentsAnalysis plan Code",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#1-objective",
+    "href": "quarto/analysis-plan.html#1-objective",
+    "title": "",
+    "section": "1. Objective",
+    "text": "1. Objective\nTo compare all-cause mortality after simultaneous liver–kidney (SLK) transplantation between recipients with HIV and propensity-score-matched recipients without HIV, in the United States, 2005–2023.\nSecondary objectives\n\nCompare death-censored kidney graft failure and death-censored liver graft failure.\nCompare post-transplant hospital length of stay among recipients discharged alive.\nAssess whether the association between HIV and each outcome differs between the eras before and after direct-acting antivirals (DAAs) for hepatitis C.\n\nPlanned future aim (not part of this analysis): compare SLK recipients with HIV to liver-only recipients with HIV (Decision D9).",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#2-design",
+    "href": "quarto/analysis-plan.html#2-design",
+    "title": "",
+    "section": "2. Design",
+    "text": "2. Design\nRetrospective matched cohort study in national transplant registry data. Each HIV-positive SLK recipient is matched to up to five HIV-negative SLK recipients on a propensity score, with exact matching on DAA era and a caliper on transplant date (Section 6). All outcome analyses are conducted in the matched cohort.\nThe draft manuscript calls the design a “matched case-control study”. Because exposure (HIV) defines the groups and outcomes are followed forward from transplant, this plan describes it as a matched cohort.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#3-data-source",
+    "href": "quarto/analysis-plan.html#3-data-source",
+    "title": "",
+    "section": "3. Data source",
+    "text": "3. Data source\n\nScientific Registry of Transplant Recipients (SRTR) standard analysis files, Spring 2023 release, accessed under a data use agreement.\n\nTransplant recipient files: liver (tx_li) and kidney (tx_ki).\nCandidate files: kidney–pancreas (cand_kipa) and liver/intestine (cand_liin).\nDeceased donor file (donor_deceased).\nFollow-up files (txf_li, txf_ki) where a variable requires them.\n\nLinkage: liver and kidney transplant records are linked within SRTR by the person identifier PERS_ID. Candidate records are linked by PX_ID, and donor records by DONOR_ID. No external linkage is performed.\nPeriod: transplants in the release run from 1987-01-01 to 2023-03-31. The study period is 2005-01-01 to 2023-03-31, because the first SLK transplant in a recipient with HIV in the data occurred in 2005.\nEthics: approved by the Albert Einstein College of Medicine Institutional Review Board (IRB #2021-13273); de-identified data.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#4-study-population",
+    "href": "quarto/analysis-plan.html#4-study-population",
+    "title": "",
+    "section": "4. Study population",
+    "text": "4. Study population\n\n4.1 SLK definition\nAn SLK transplant is a liver transplant and a kidney transplant in the same person (PERS_ID) on the same day, plus or minus one day.\n\n\n4.2 Inclusion\n\nSLK transplant during the study period (Section 3).\nRecipient age at transplant of at least 16 years. Decision D1: the age threshold (the poster cohort used ≥16 years; the manuscript says “greater than 16” and “adult”).\nNon-missing identifiers needed for linkage and follow-up, including the donor identifier in both files.\n\n\n\n4.3 Exclusion\n\nAny prior transplant of any organ, identified both from the prior-transplant fields (CAN_PREV_TX) and from an earlier transplant date in either file.\nAdditional organs at the SLK transplant (kidney–liver–heart, kidney–liver–intestine).\nLiver and kidney allografts from different donors.\nHIV status recorded as positive in one file and negative in the other (Section 5.1).\n\nIf a recipient has more than one SLK transplant, only the first is used. Same-day duplicate records are resolved to one record per recipient by a documented, reproducible rule.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#5-exposure-era-and-time-zero",
+    "href": "quarto/analysis-plan.html#5-exposure-era-and-time-zero",
+    "title": "",
+    "section": "5. Exposure, era, and time zero",
+    "text": "5. Exposure, era, and time zero\n\n5.1 Exposure definition\nRecipient HIV serostatus at transplant, from REC_HIV_STAT in the liver and kidney files.\n\nHIV-positive: positive in at least one file, and positive or missing/unknown in the other.\nHIV-negative: every other non-discordant recipient, including those whose status is unknown or not done in both files.\nDiscordant (positive in one file, negative in the other): excluded (Section 4.3).\n\nDecision D2: the manuscript says a positive status must be “not contradicted by an ‘unknown’ designation” in the other file, while the poster cohort classified positive-plus-unknown as positive. Because HIV-negative includes unknown status, tables label that group “Negative/Unknown”.\n\n\n5.2 DAA era\n\nPre-DAA: transplant year 2005–2013.\nPost-DAA: transplant year 2014–2023.\n\n2014 is the first year in which DAA therapy was widely available to transplant recipients.\n\n\n5.3 Time zero\nThe composite transplant date: the earlier of the liver and kidney transplant dates. For organ-specific graft outcomes, time zero is that organ’s transplant date. Covariates are measured at or before transplant.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#6-matching",
+    "href": "quarto/analysis-plan.html#6-matching",
+    "title": "",
+    "section": "6. Matching",
+    "text": "6. Matching\n\n6.1 Method\n\nPropensity score: probability of HIV-positive status, estimated by logistic regression.\nExact matching on DAA era.\nCaliper of 365 days on the transplant date.\nNearest-neighbour matching without replacement, ratio 1:5 (up to five HIV-negative recipients per HIV-positive recipient).\nNo caliper on the propensity score itself.\nMatching is reproducible, and the matched set is carried through to every outcome model.\n\n\n\n6.2 Propensity score covariates\n\n\n\n\n\n\n\nDomain\nCovariates\n\n\n\n\nDonor\nAge, sex\n\n\nRecipient\nAge, sex, race (White, Black, Hispanic, Other)\n\n\nLiver disease\nLast laboratory MELD score before transplant; primary liver diagnosis (OPTN categories, collapsed)\n\n\nKidney disease\nPrimary kidney diagnosis (OPTN categories, collapsed)\n\n\nViral serology\nHCV serostatus, HBV surface antigen, CMV serostatus\n\n\n\nSerologies are harmonized across the liver and kidney files: positive if positive in one file and positive or missing in the other; negative if negative in one and negative or missing in the other; directly conflicting values (positive versus negative) are treated as missing.\nDecision D3: the covariate set, including whether recipient race is included. The manuscript list omits race; the poster lists transplant year and era (era is handled by exact matching, transplant year by the caliper). The covariate set behind the poster results is not fully documented.\nDecision D4: handling of missing covariate values. Categorical covariates use an explicit “Missing” level. For continuous covariates (MELD, donor age, recipient age), the method used for the poster results is not documented. The options are complete-case exclusion before matching, missing indicators, or imputation.\n\n\n6.3 Matching outcomes reported\n\nThe number of HIV-positive recipients with 5, 4, 3, 2, 1 and 0 matched controls.\nHIV-positive recipients excluded or unmatched, and how they compare with those matched.\nThe proportion of matched sets in which members differ by more than the caliper, as a check.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#7-outcomes",
+    "href": "quarto/analysis-plan.html#7-outcomes",
+    "title": "",
+    "section": "7. Outcomes",
+    "text": "7. Outcomes\n\n7.1 Primary outcome: all-cause mortality\n\nDeath date: a composite of registry sources, in order of priority: OPTN-reported death date (PERS_OPTN_DEATH_DT), Social Security Administration death date (PERS_SSA_DEATH_DT), then transplant follow-up death date (TFL_DEATH_DT), taking whichever file (liver or kidney) records it.\nCensoring: recipients without a death date are censored at the latest last-follow-up date (TFL_LAFUDATE) across the liver and kidney files.\nTime: from the composite transplant date to death or censoring, in years.\n\n\n\n7.2 Secondary outcomes: death-censored graft failure\nEvaluated separately for the kidney and the liver graft.\n\nEvent: registry-reported graft failure date (TFL_GRAFT_DT) for that organ.\nFollow-up ends at the earliest of graft failure, death, or that organ’s last follow-up date. Death before graft failure is censored.\nTime: from that organ’s transplant date, in years.\n\nDecision D5: whether retransplantation of the organ (PERS_NEXTTX) or return to chronic dialysis without a recorded graft failure date also counts as graft failure.\n\n\n7.3 Secondary outcome: hospital length of stay\n\nDays from transplant date to transplant discharge date (REC_DISCHRG_DT), counted inclusively so that the transplant day is day 1.\nRecipients who died on or before the recorded discharge date are excluded from this analysis.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#8-statistical-analysis",
+    "href": "quarto/analysis-plan.html#8-statistical-analysis",
+    "title": "",
+    "section": "8. Statistical analysis",
+    "text": "8. Statistical analysis\n\n8.1 Descriptive analysis\n\nA cohort flow diagram from all SLK transplants in the release through each exclusion to the matched cohort.\nBaseline donor and recipient characteristics by HIV status, before and after matching: median and interquartile range for continuous variables, counts and percentages for categorical variables.\nUnadjusted comparisons: Wilcoxon rank-sum test for continuous variables, and chi-square or Fisher’s exact test for categorical variables, as appropriate.\n\n\n\n8.2 Balance\n\nStandardized mean differences for every propensity score covariate, before and after matching.\nAn absolute standardized mean difference below 0.10 is considered adequate balance.\nBalance is assessed before any outcome analysis is run.\n\n\n\n8.3 Survival analysis\n\nKaplan–Meier estimates of patient survival by HIV status, compared with the log-rank test; overall and within each DAA era.\nCox proportional hazards models for HIV status and each time-to-event outcome (mortality, kidney graft failure, liver graft failure), with robust standard errors clustered on matched set.\nThe proportional hazards assumption is checked with scaled Schoenfeld residuals.\n\n\n\n8.4 Effect modification by DAA era\n\nCox models fitted separately within the pre-DAA and post-DAA matched cohorts. Matched sets stay within one era because era is matched exactly.\nA model with an HIV × era interaction in the full matched cohort, to test for effect modification. The interaction hazard ratio is the ratio of the post-DAA to the pre-DAA hazard ratio.\n\nDecision D7: whether era-specific models are reported unadjusted only (as on the poster), or also with adjustment for covariates with residual imbalance after matching (for example, HBV surface antigen and CMV).\nDecision D10: handling of sparse or zero events (for example, liver graft failure in the post-DAA era): report as not estimable, or use Firth’s penalized Cox regression.\n\n\n8.5 Length of stay\nCompared between groups with the Wilcoxon rank-sum test, because of its right-skewed distribution.\nDecision D6: whether length of stay is also analysed by regression (negative binomial or log-linear, with standard errors clustered on matched set) as a secondary analysis.\n\n\n8.6 Missing data\n\nMissingness of every covariate and outcome field is described by HIV status.\nMissing categorical covariates are an explicit category (Section 6.2); continuous covariates follow D4.\n\n\n\n8.7 Inference and software\n\nAll tests are two-sided, with p &lt; 0.05 considered statistically significant.\nAnalyses are run in R (version 4.5.1 for the poster results), with propensity score matching in MatchIt.\nCode is public at https://github.com/VagishHemmige/HIV-SLK-outcomes, and a website at https://vagishhemmige.github.io/HIV-SLK-outcomes documents each step. Data are not shared, as the data use agreement requires.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#9-sensitivity-analyses",
+    "href": "quarto/analysis-plan.html#9-sensitivity-analyses",
+    "title": "",
+    "section": "9. Sensitivity analyses",
+    "text": "9. Sensitivity analyses\n\nHCV-positive recipients: the matched cohort restricted to recipients with HCV-positive serostatus, with the primary Cox model and era-specific models, to assess whether the association differs among those directly affected by DAAs.\nMissing-data handling: the alternative under D4 to the one chosen as primary.\nExposure classification: the alternative rule under D2 for positive-plus-unknown recipients.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#10-disclosure-control",
+    "href": "quarto/analysis-plan.html#10-disclosure-control",
+    "title": "",
+    "section": "10. Disclosure control",
+    "text": "10. Disclosure control\n\nAll outputs are reviewed against the SRTR data use agreement before they leave the secure environment.\nDecision D8: the small-cell rule for tables, figures, flow diagrams, risk tables and website text, under the exact wording of the SRTR data use agreement (for example, suppressing counts below 11).\nFigures that show individual people are not published.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#11-limitations-to-address-in-reporting",
+    "href": "quarto/analysis-plan.html#11-limitations-to-address-in-reporting",
+    "title": "",
+    "section": "11. Limitations to address in reporting",
+    "text": "11. Limitations to address in reporting\n\nSmall number of HIV-positive SLK recipients, limiting power, especially for graft failure and era-specific analyses.\nHIV status from registry fields, with unknown status grouped with HIV-negative; some misclassification is possible.\nNo HIV-specific clinical data (CD4 count, viral load, antiretroviral regimen) in the standard analysis files.\nResidual confounding by unmeasured factors, including center practices.\nRegistry follow-up and graft failure ascertainment vary by center and over time.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#12-reporting-map",
+    "href": "quarto/analysis-plan.html#12-reporting-map",
+    "title": "",
+    "section": "12. Reporting map",
+    "text": "12. Reporting map\n\n\n\n\n\n\n\n\nChecklist item\nTopic\nPlan section\n\n\n\n\nSTROBE 1\nTitle and abstract\n1, 2\n\n\nSTROBE 2–3\nBackground, objectives\n1\n\n\nSTROBE 4\nStudy design\n2\n\n\nSTROBE 5\nSetting, dates\n3\n\n\nSTROBE 6\nEligibility; matching criteria and number of controls\n4, 6\n\n\nSTROBE 7\nVariables\n5, 6.2, 7\n\n\nSTROBE 8\nData sources and measurement\n3, 5, 7\n\n\nSTROBE 9\nBias\n6, 9, 11\n\n\nSTROBE 10\nStudy size\n6.3, 8.1\n\n\nSTROBE 11\nQuantitative variables\n6.2, 7\n\n\nSTROBE 12\nStatistical methods, including matching, missing data and sensitivity analyses\n8, 9\n\n\nSTROBE 13\nParticipants, flow diagram\n8.1\n\n\nSTROBE 14–17\nDescriptive data, outcomes, main and other results\n8\n\n\nSTROBE 18–21\nDiscussion, limitations, interpretation, generalizability\n11\n\n\nSTROBE 22\nFunding; access to code\n8.7",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#13-open-decisions",
+    "href": "quarto/analysis-plan.html#13-open-decisions",
+    "title": "",
+    "section": "13. Open decisions",
+    "text": "13. Open decisions\n\n\n\n\n\n\n\n\nID\nDecision\nSection\n\n\n\n\nD1\nRecipient age threshold: ≥16 years (poster), &gt;16 years, or adults ≥18 years\n4.2\n\n\nD2\nHIV classification when one file is positive and the other unknown or not done\n5.1\n\n\nD3\nPropensity score covariate set, including recipient race\n6.2\n\n\nD4\nMissing continuous covariates in the propensity score\n6.2\n\n\nD5\nWhether retransplantation or return to dialysis counts as graft failure\n7.2\n\n\nD6\nWhether regression models of length of stay are reported alongside the Wilcoxon test\n8.5\n\n\nD7\nEra-specific Cox models: unadjusted only, or also adjusted\n8.4\n\n\nD8\nSmall-cell disclosure rule under the SRTR data use agreement\n10\n\n\nD9\nWhether the liver-only comparison is part of this paper or a separate analysis\n1\n\n\nD10\nSparse or zero events: report as not estimable, or Firth’s penalized Cox regression\n8.4",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
+  },
+  {
+    "objectID": "quarto/analysis-plan.html#references",
+    "href": "quarto/analysis-plan.html#references",
+    "title": "",
+    "section": "References",
+    "text": "References\n\nvon Elm E, et al. The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) statement. Lancet 2007;370:1453–1457.\nHo DE, Imai K, King G, Stuart EA. MatchIt: nonparametric preprocessing for parametric causal inference. J Stat Softw 2011;42(8):1–28.\nAustin PC. Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples. Stat Med 2009;28:3083–3107.\nBlumberg EA, Rogers CC; AST Infectious Diseases Community of Practice. Human immunodeficiency virus in solid organ transplantation. Am J Transplant 2013;13 Suppl 4:169–178.\nScientific Registry of Transplant Recipients. Standard analysis files, Spring 2023 release, and data dictionary.",
+    "crumbs": [
+      "Project documents",
+      "Analysis plan"
+    ]
   }
 ]
