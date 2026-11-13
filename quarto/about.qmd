@@ -19,7 +19,7 @@ Scientific decisions are made by Vagish Hemmige. Open decisions are marked in th
 
 ## This repository
 
-`R/main.R` runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the [sRtr](https://github.com/VagishHemmige/sRtr) package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.
+`R/main.R` runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the [{sRtr}](https://github.com/VagishHemmige/sRtr) package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.
 
 Contributions follow the rules in [`AGENTS.md`](agents.qmd); known issues and open decisions are tracked in [Issues](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues). To comment on any page, highlight the text and use the Comment button; comments are filed as GitHub issues.
 

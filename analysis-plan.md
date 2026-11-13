@@ -184,7 +184,7 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 ### 8.7 Inference and software
 
 - All tests are two-sided, with p < 0.05 considered statistically significant.
-- Analyses are run in R (version 4.5.1 for the poster results), with propensity score matching in `MatchIt`.
+- Analyses are run in R (version 4.5.1 for the poster results), with propensity score matching in [{MatchIt}](https://kosukeimai.github.io/MatchIt/).
 - Code is public at https://github.com/VagishHemmige/HIV-SLK-outcomes, and a website at https://vagishhemmige.github.io/HIV-SLK-outcomes documents each step. Data are not shared, as the data use agreement requires.
 
 ## 9. Sensitivity analyses
@@ -231,7 +231,7 @@ Compared between groups with the Wilcoxon rank-sum test, because of its right-sk
 ## References
 
 - von Elm E, et al. The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) statement. *Lancet* 2007;370:1453–1457.
-- Ho DE, Imai K, King G, Stuart EA. MatchIt: nonparametric preprocessing for parametric causal inference. *J Stat Softw* 2011;42(8):1–28.
+- Ho DE, Imai K, King G, Stuart EA. {MatchIt}: nonparametric preprocessing for parametric causal inference. *J Stat Softw* 2011;42(8):1–28.
 - Austin PC. Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples. *Stat Med* 2009;28:3083–3107.
 - Blumberg EA, Rogers CC; AST Infectious Diseases Community of Practice. Human immunodeficiency virus in solid organ transplantation. *Am J Transplant* 2013;13 Suppl 4:169–178.
 - Scientific Registry of Transplant Recipients. Standard analysis files, Spring 2023 release, and data dictionary.

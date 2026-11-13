@@ -34,7 +34,7 @@ available at <https://vagishhemmige.github.io/HIV-SLK-outcomes/>.
 
 Run `R/main.R` from the project root. Requires authorized access to the
 SRTR standard analysis files under the SRTR data use agreement, located
-through the [sRtr](https://github.com/VagishHemmige/sRtr) package
+through the [{sRtr}](https://github.com/VagishHemmige/sRtr) package
 (`sRtr::set_srtr_wd()`).
 
 ## Presentations
