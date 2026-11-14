@@ -76,7 +76,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-2f5df379a58b258e96c21c0638c20c03.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-80fef5830b0d9eb79eaff4757c5b6424.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-76c51399c39af6d7d3c865c81ec7d3f9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.js"></script>
 <link href="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
@@ -107,6 +107,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 <style>
+div.callout-Rcode.callout {
+  border-left-color: #d63384;
+}
+div.callout-Rcode.callout-style-default > .callout-header {
+  background-color: rgba(214, 51, 132, 0.13);
+}
+div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
+div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
+  content: '💻';
+  background-image: none;
+}
 div.callout-Pending.callout {
   border-left-color: #f0c400;
 }
@@ -127,17 +138,6 @@ div.callout-Results.callout-style-default > .callout-header {
 div.callout-Results .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
 div.callout-Results.callout-style-default .callout-icon::before, div.callout-Results.callout-titled .callout-icon::before {
   content: '📊';
-  background-image: none;
-}
-div.callout-Rcode.callout {
-  border-left-color: #d63384;
-}
-div.callout-Rcode.callout-style-default > .callout-header {
-  background-color: rgba(214, 51, 132, 0.13);
-}
-div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
-div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
-  content: '💻';
   background-image: none;
 }
 </style>
@@ -441,7 +441,7 @@ edit that file, not this page. Its first heading is the page title.
 </ul></li>
 <li><strong>Open decisions.</strong> The plan marks each open design choice <strong>Open:</strong> where it occurs, linked to its decision issue (titled “Decision D<em>n</em>”). Do not settle one in code. Until it is settled, the code keeps the behaviour that produced the poster results and says so in a comment that names the decision. If the code needs to depart from the plan, open a decision issue, or comment on the existing one. Once the decider has settled it (in the issue, or relayed there in his exact words), the plan change and the code can go in the same pull request, which closes the issue.</li>
 <li><strong>Decider.</strong> Scientific decisions are made by Vagish Hemmige. Anyone may open or contribute to a decision issue; only the decider settles it (see “Working with agents”).</li>
-<li><strong>This is an analysis project, not an R package</strong>, even though the scripts live in <code>R/</code> and there is an <code>.Rbuildignore</code>. Do not add DESCRIPTION, NAMESPACE, roxygen, or pkgdown infrastructure. Do not apply CRAN conventions.</li>
+<li><strong>This is an analysis project, not an R package</strong>, even though the scripts live in <code>R/</code> and there is an <code>.Rbuildignore</code>. Do not add DESCRIPTION, NAMESPACE, roxygen, or <a href="https://pkgdown.r-lib.org/">{pkgdown}</a> infrastructure. Do not apply CRAN conventions.</li>
 <li><strong>Default branch:</strong> <code>master</code>, protected. Changes reach it only through pull requests.</li>
 <li><strong>Implementation status lives in GitHub Issues</strong>, not in these files. When you find a gap between the code and the plan, or a defect, open or update an issue. Reference the issue in the pull request that closes it.</li>
 </ul>
@@ -464,7 +464,7 @@ edit that file, not this page. Its first heading is the page title.
 <tr class="odd">
 <td>SRTR standard analysis files (record the release used for any result)</td>
 <td><code>sRtr::load_srtr_file()</code></td>
-<td><a href="https://github.com/VagishHemmige/sRtr">sRtr</a></td>
+<td><a href="https://github.com/VagishHemmige/sRtr">{sRtr}</a></td>
 <td>This team</td>
 <td>Restricted under the SRTR data use agreement (DUA)</td>
 <td>None: code, documentation and synthetic data only</td>
@@ -472,18 +472,18 @@ edit that file, not this page. Its first heading is the page title.
 </tbody>
 </table>
 <p>To allow more for a source, a person changes its row through a pull request, naming the agreement and section that permit it, the approved AI service, and exactly what agents may do. Agents never propose or make this change themselves, and nothing in personal instructions can grant it.</p>
-<p><strong>sRtr is the first place to look</strong> for anything that touches SRTR files: loading files (<code>load_srtr_file()</code>), labels and factors (<code>apply_srtr_varlabels()</code>, <code>apply_srtr_factors()</code>), missing-value codes (<code>srtr_normalize_missing()</code>), composite death dates (<code>srtr_composite_death()</code>), time-to-event variables (<code>srtr_time_to_event()</code>), and follow-up outcomes (<code>add_txf_outcomes()</code>).</p>
+<p><strong>{sRtr} is the first place to look</strong> for anything that touches SRTR files: loading files (<code>load_srtr_file()</code>), labels and factors (<code>apply_srtr_varlabels()</code>, <code>apply_srtr_factors()</code>), missing-value codes (<code>srtr_normalize_missing()</code>), composite death dates (<code>srtr_composite_death()</code>), time-to-event variables (<code>srtr_time_to_event()</code>), and follow-up outcomes (<code>add_txf_outcomes()</code>).</p>
 <ul>
 <li><strong>Read its documentation before writing code for a source</strong>, including known issues. Behaviour that sets the cohort, the exposure, an outcome, or a denominator is checked in the documentation, not assumed from a function’s name. Use an existing function, or extend it.</li>
-<li><strong>Problems belong in the package.</strong> If an sRtr function is wrong, or does almost but not exactly what the plan needs, open an issue in the <a href="https://github.com/VagishHemmige/sRtr/issues">sRtr repository</a> rather than documenting it here. Then fix it there, or wrap it in this project with a code comment that links the issue. Remove the wrapper when the issue is fixed.</li>
-<li><strong>Facts about SRTR belong in sRtr’s documentation.</strong> If sRtr lacks something this project needs to know, add it there or open an issue there. The “SRTR data facts” below stay here until sRtr documents them.</li>
-<li>Before replacing project code with an sRtr function, confirm it gives identical results on synthetic data. For example, <code>srtr_time_to_event()</code> adds one day to times by default, and the project’s mortality times do not.</li>
-<li>Record the sRtr version (or commit) used for any result.</li>
+<li><strong>Problems belong in the package.</strong> If an {sRtr} function is wrong, or does almost but not exactly what the plan needs, open an issue in the <a href="https://github.com/VagishHemmige/sRtr/issues">{sRtr} repository</a> rather than documenting it here. Then fix it there, or wrap it in this project with a code comment that links the issue. Remove the wrapper when the issue is fixed.</li>
+<li><strong>Facts about SRTR belong in {sRtr}’s documentation.</strong> If {sRtr} lacks something this project needs to know, add it there or open an issue there. The “SRTR data facts” below stay here until {sRtr} documents them.</li>
+<li>Before replacing project code with an {sRtr} function, confirm it gives identical results on synthetic data. For example, <code>srtr_time_to_event()</code> adds one day to times by default, and the project’s mortality times do not.</li>
+<li>Record the {sRtr} version (or commit) used for any result.</li>
 </ul>
 </section>
 <section id="srtr-data-facts" class="level2">
 <h2 class="anchored" data-anchor-id="srtr-data-facts">SRTR data facts</h2>
-<p>Source: the SRTR standard analysis file data dictionary, as bundled in sRtr (<code>sRtr::dictionary</code>, built from <code>data-raw/dataDictionary.html</code>). Check these against the release you are using.</p>
+<p>Source: the SRTR standard analysis file data dictionary, as bundled in {sRtr} (<code>sRtr::dictionary</code>, built from <code>data-raw/dataDictionary.html</code>). Check these against the release you are using.</p>
 <p><strong>One SLK transplant appears twice.</strong> It has a record in the liver file (<code>tx_li</code>) and one in the kidney file (<code>tx_ki</code>), each with its own <code>TRR_ID</code> and <code>PX_ID</code>, linked by <code>PERS_ID</code>. After the join, the same field carries an <code>_LI</code> or <code>_KI</code> suffix. The two copies of a field can disagree; harmonize them with a documented rule (<code>combine_li_ki_consistent()</code> for serologies), never by silently preferring one file.</p>
 <p><strong>Identifiers.</strong></p>
 <table class="caption-top table">
@@ -624,7 +624,7 @@ Agents write code, review it, and run it on <strong>synthetic data</strong> that
 <h2 class="anchored" data-anchor-id="coding-conventions">Coding conventions</h2>
 <ul>
 <li><strong>Flowchart labels and text</strong> are built from the constants in <code>setup.R</code>, not hard-coded. For example, a label that says “2005 or later” or “age 16 or older” goes stale when the constants change.</li>
-<li><strong>Cohort flow</strong> uses the <code>flowchart</code> package (<code>as_fc()</code>, <code>fc_filter()</code>, <code>fc_draw()</code>). Every exclusion goes through <code>fc_filter()</code>, in the plan’s order. Never drop rows from <code>$data</code> outside the flowchart; the diagram must reproduce the cohort exactly. Record-level processing (harmonizing liver and kidney copies, choosing among a person’s records) is fine. An analysis that uses fewer people than the cohort (complete cases, a subgroup) reports its own number with that analysis. The cohort used downstream is the data from the final flowchart step.</li>
+<li><strong>Cohort flow</strong> uses the <a href="https://bruigtp.github.io/flowchart/">{flowchart}</a> package (<code>as_fc()</code>, <code>fc_filter()</code>, <code>fc_draw()</code>). Every exclusion goes through <code>fc_filter()</code>, in the plan’s order. Never drop rows from <code>$data</code> outside the flowchart; the diagram must reproduce the cohort exactly. Record-level processing (harmonizing liver and kidney copies, choosing among a person’s records) is fine. An analysis that uses fewer people than the cohort (complete cases, a subgroup) reports its own number with that analysis. The cohort used downstream is the data from the final flowchart step.</li>
 <li><strong>Matching</strong>
 <ul>
 <li>Matching runs inside the pipeline and is reproducible from the seed in <code>setup.R</code>. Control selection must not depend on row order.</li>
@@ -655,7 +655,7 @@ Agents write code, review it, and run it on <strong>synthetic data</strong> that
 <p><strong>Plan and data sources</strong></p>
 <ul>
 <li>Does the change implement the plan as written, and does it leave every open decision open?</li>
-<li>Does it use sRtr’s functions where they exist, and does their documented behaviour match what the plan needs?</li>
+<li>Does it use {sRtr}’s functions where they exist, and does their documented behaviour match what the plan needs?</li>
 <li>For new or changed calls to a package, does the pull request name the installed version and the help page or NEWS entry relied on?</li>
 </ul>
 <p><strong>Cohort construction</strong></p>
@@ -706,7 +706,7 @@ Agents write code, review it, and run it on <strong>synthetic data</strong> that
 <ul>
 <li>Does <code>main.R</code> run from a clean session (<code>Ctrl+Shift+F10</code> in RStudio, then source <code>main.R</code>), with no objects left over from earlier work?</li>
 <li>Are paths relative, with no hard-coded data directories?</li>
-<li>Are package versions recorded (<code>sessionInfo()</code>, and the sRtr commit)?</li>
+<li>Are package versions recorded (<code>sessionInfo()</code>, and the {sRtr} commit)?</li>
 </ul>
 <p><strong>Validation on real data</strong> (run by an authorized person; report only aggregate, disclosure-checked results)</p>
 <ul>

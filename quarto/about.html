@@ -75,7 +75,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-2f5df379a58b258e96c21c0638c20c03.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-80fef5830b0d9eb79eaff4757c5b6424.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-76c51399c39af6d7d3c865c81ec7d3f9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.js"></script>
 <link href="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
@@ -106,17 +106,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 <style>
-div.callout-Rcode.callout {
-  border-left-color: #d63384;
-}
-div.callout-Rcode.callout-style-default > .callout-header {
-  background-color: rgba(214, 51, 132, 0.13);
-}
-div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
-div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
-  content: '💻';
-  background-image: none;
-}
 div.callout-Pending.callout {
   border-left-color: #f0c400;
 }
@@ -137,6 +126,17 @@ div.callout-Results.callout-style-default > .callout-header {
 div.callout-Results .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
 div.callout-Results.callout-style-default .callout-icon::before, div.callout-Results.callout-titled .callout-icon::before {
   content: '📊';
+  background-image: none;
+}
+div.callout-Rcode.callout {
+  border-left-color: #d63384;
+}
+div.callout-Rcode.callout-style-default > .callout-header {
+  background-color: rgba(214, 51, 132, 0.13);
+}
+div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
+div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
+  content: '💻';
   background-image: none;
 }
 </style>
@@ -398,7 +398,7 @@ div.callout-Results.callout-style-default .callout-icon::before, div.callout-Res
 </section>
 <section id="this-repository" class="level2">
 <h2 class="anchored" data-anchor-id="this-repository">This repository</h2>
-<p><code>R/main.R</code> runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the <a href="https://github.com/VagishHemmige/sRtr">sRtr</a> package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.</p>
+<p><code>R/main.R</code> runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the <a href="https://github.com/VagishHemmige/sRtr">{sRtr}</a> package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.</p>
 <p>Contributions follow the rules in <a href="../quarto/agents.html"><code>AGENTS.md</code></a>; known issues and open decisions are tracked in <a href="https://github.com/VagishHemmige/HIV-SLK-outcomes/issues">Issues</a>. To comment on any page, highlight the text and use the Comment button; comments are filed as GitHub issues.</p>
 </section>
 <section id="how-this-website-was-created" class="level2">
@@ -928,7 +928,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="fu">## This repository</span></span>
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="in">`R/main.R`</span> runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the <span class="co">[</span><span class="ot">sRtr</span><span class="co">](https://github.com/VagishHemmige/sRtr)</span> package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="in">`R/main.R`</span> runs the scripts in order: importing the transplant files, building the SLK cohort, adding donor and candidate data, matching, and producing tables and figures. The SRTR standard analysis files are loaded through the <span class="co">[</span><span class="ot">{sRtr}</span><span class="co">](https://github.com/VagishHemmige/sRtr)</span> package. SRTR data are restricted under a data use agreement, so they are not in the repository; the code runs only where an authorized person has access to them.</span>
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>Contributions follow the rules in <span class="co">[</span><span class="ot">`AGENTS.md`</span><span class="co">](agents.qmd)</span>; known issues and open decisions are tracked in <span class="co">[</span><span class="ot">Issues</span><span class="co">](https://github.com/VagishHemmige/HIV-SLK-outcomes/issues)</span>. To comment on any page, highlight the text and use the Comment button; comments are filed as GitHub issues.</span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>

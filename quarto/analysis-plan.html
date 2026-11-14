@@ -76,7 +76,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-2f5df379a58b258e96c21c0638c20c03.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-80fef5830b0d9eb79eaff4757c5b6424.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-76c51399c39af6d7d3c865c81ec7d3f9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.js"></script>
 <link href="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
@@ -118,17 +118,6 @@ div.callout-Pending.callout-style-default .callout-icon::before, div.callout-Pen
   content: '⏳';
   background-image: none;
 }
-div.callout-Rcode.callout {
-  border-left-color: #d63384;
-}
-div.callout-Rcode.callout-style-default > .callout-header {
-  background-color: rgba(214, 51, 132, 0.13);
-}
-div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
-div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
-  content: '💻';
-  background-image: none;
-}
 div.callout-Results.callout {
   border-left-color: #198754;
 }
@@ -138,6 +127,17 @@ div.callout-Results.callout-style-default > .callout-header {
 div.callout-Results .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
 div.callout-Results.callout-style-default .callout-icon::before, div.callout-Results.callout-titled .callout-icon::before {
   content: '📊';
+  background-image: none;
+}
+div.callout-Rcode.callout {
+  border-left-color: #d63384;
+}
+div.callout-Rcode.callout-style-default > .callout-header {
+  background-color: rgba(214, 51, 132, 0.13);
+}
+div.callout-Rcode .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
+div.callout-Rcode.callout-style-default .callout-icon::before, div.callout-Rcode.callout-titled .callout-icon::before {
+  content: '💻';
   background-image: none;
 }
 </style>
@@ -695,7 +695,7 @@ gives this page GitHub-style IDs and those links work on both.
 <h3 class="anchored" data-anchor-id="87-inference-and-software">8.7 Inference and software</h3>
 <ul>
 <li>All tests are two-sided, with p &lt; 0.05 considered statistically significant.</li>
-<li>Analyses are run in R (version 4.5.1 for the poster results), with propensity score matching in <code>MatchIt</code>.</li>
+<li>Analyses are run in R (version 4.5.1 for the poster results), with propensity score matching in <a href="https://kosukeimai.github.io/MatchIt/">{MatchIt}</a>.</li>
 <li>Code is public at https://github.com/VagishHemmige/HIV-SLK-outcomes, and a website at https://vagishhemmige.github.io/HIV-SLK-outcomes documents each step. Data are not shared, as the data use agreement requires.</li>
 </ul>
 </section>
@@ -826,7 +826,7 @@ gives this page GitHub-style IDs and those links work on both.
 <h2 class="anchored" data-anchor-id="references">References</h2>
 <ul>
 <li>von Elm E, et al.&nbsp;The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) statement. <em>Lancet</em> 2007;370:1453–1457.</li>
-<li>Ho DE, Imai K, King G, Stuart EA. MatchIt: nonparametric preprocessing for parametric causal inference. <em>J Stat Softw</em> 2011;42(8):1–28.</li>
+<li>Ho DE, Imai K, King G, Stuart EA. {MatchIt}: nonparametric preprocessing for parametric causal inference. <em>J Stat Softw</em> 2011;42(8):1–28.</li>
 <li>Austin PC. Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples. <em>Stat Med</em> 2009;28:3083–3107.</li>
 <li>Blumberg EA, Rogers CC; AST Infectious Diseases Community of Practice. Human immunodeficiency virus in solid organ transplantation. <em>Am J Transplant</em> 2013;13 Suppl 4:169–178.</li>
 <li>Scientific Registry of Transplant Recipients. Standard analysis files, Spring 2023 release, and data dictionary.</li>

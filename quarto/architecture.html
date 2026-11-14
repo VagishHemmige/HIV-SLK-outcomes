@@ -76,7 +76,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-2f5df379a58b258e96c21c0638c20c03.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-80fef5830b0d9eb79eaff4757c5b6424.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-76c51399c39af6d7d3c865c81ec7d3f9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.js"></script>
 <link href="../site_libs/quarto-contrib/issue-comments-0.3.0/issue-comments.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
@@ -110,6 +110,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-diagram/mermaid-init.js"></script>
 <link href="../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
 <style>
+div.callout-Results.callout {
+  border-left-color: #198754;
+}
+div.callout-Results.callout-style-default > .callout-header {
+  background-color: rgba(25, 135, 84, 0.13);
+}
+div.callout-Results .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
+div.callout-Results.callout-style-default .callout-icon::before, div.callout-Results.callout-titled .callout-icon::before {
+  content: '📊';
+  background-image: none;
+}
 div.callout-Rcode.callout {
   border-left-color: #d63384;
 }
@@ -130,17 +141,6 @@ div.callout-Pending.callout-style-default > .callout-header {
 div.callout-Pending .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
 div.callout-Pending.callout-style-default .callout-icon::before, div.callout-Pending.callout-titled .callout-icon::before {
   content: '⏳';
-  background-image: none;
-}
-div.callout-Results.callout {
-  border-left-color: #198754;
-}
-div.callout-Results.callout-style-default > .callout-header {
-  background-color: rgba(25, 135, 84, 0.13);
-}
-div.callout-Results .callout-toggle::before {  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="rgb(33, 37, 41)" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>');}
-div.callout-Results.callout-style-default .callout-icon::before, div.callout-Results.callout-titled .callout-icon::before {
-  content: '📊';
   background-image: none;
 }
 </style>
@@ -423,7 +423,7 @@ It reads only ARCHITECTURE.md, never data, and runs no analysis code.
 </blockquote>
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p>The project compares outcomes after simultaneous liver–kidney (SLK) transplantation in recipients with and without HIV, using SRTR standard analysis files loaded through the separate <a href="https://github.com/VagishHemmige/sRtr"><code>sRtr</code></a> package. It works in five stages:</p>
+<p>The project compares outcomes after simultaneous liver–kidney (SLK) transplantation in recipients with and without HIV, using SRTR standard analysis files loaded through the separate <a href="https://github.com/VagishHemmige/sRtr">{sRtr}</a> package. It works in five stages:</p>
 <ol type="1">
 <li>Load the liver and kidney transplant files and pair each person’s liver and kidney records.</li>
 <li>Keep first SLK transplants, apply exclusions, classify HIV status, and derive analysis variables.</li>
@@ -465,13 +465,13 @@ It reads only ARCHITECTURE.md, never data, and runs no analysis code.
 <h3 class="anchored" data-anchor-id="setup">Setup</h3>
 <p><strong>Purpose</strong>: Load libraries and define table labels.</p>
 <p><strong>Location</strong>: <code>R/setup.R</code></p>
-<p><strong>Key symbols</strong>: - Libraries for data management, <code>sRtr</code>, <code>strobe</code> and <code>flowchart</code>, <code>MatchIt</code>, <code>survival</code>, <code>MASS</code>, <code>sandwich</code>, <code>lmtest</code>, <code>gtsummary</code>, <code>gt</code>, <code>survminer</code> - <code>conflict_prefer()</code> calls so <code>dplyr::select</code>, <code>filter</code> and <code>lag</code> win - <code>var_labels</code> — named vector of readable labels for table variables</p>
+<p><strong>Key symbols</strong>: - Libraries for data management, {sRtr}, <a href="https://vagishhemmige.github.io/strobe/">{strobe}</a> and <a href="https://bruigtp.github.io/flowchart/">{flowchart}</a>, <a href="https://kosukeimai.github.io/MatchIt/">{MatchIt}</a>, <a href="https://CRAN.R-project.org/package=survival">{survival}</a>, <a href="https://CRAN.R-project.org/package=MASS">{MASS}</a>, <a href="https://CRAN.R-project.org/package=sandwich">{sandwich}</a>, <a href="https://CRAN.R-project.org/package=lmtest">{lmtest}</a>, <a href="https://www.danieldsjoberg.com/gtsummary/">{gtsummary}</a>, <a href="https://gt.rstudio.com/">{gt}</a>, <a href="https://CRAN.R-project.org/package=survminer">{survminer}</a> - <code>conflict_prefer()</code> calls so <code>dplyr::select</code>, <code>filter</code> and <code>lag</code> win - <code>var_labels</code> — named vector of readable labels for table variables</p>
 <p>Analysis constants (study start year, age threshold, era cut-off, matching settings) are not defined here; they are hard-coded in the scripts that use them.</p>
 </section>
 <section id="helper-functions" class="level3">
 <h3 class="anchored" data-anchor-id="helper-functions">Helper functions</h3>
 <p><strong>Location</strong>: <code>R/functions/functions.R</code></p>
-<p><strong>Key functions</strong>: - <code>combine_li_ki_consistent()</code> — harmonizes a field recorded in both the liver and kidney files: positive if one is positive and the other positive or missing, negative likewise, missing when they conflict - <code>recode_sex_FM()</code>, <code>recode_YNU()</code>, <code>recode_PNU()</code>, <code>recode_YNU_to_words()</code>, <code>collapse_donor_race()</code>, <code>make_missing_level()</code> — recoders - <code>make_gtsummary_labels()</code> — converts <code>var_labels</code> for gtsummary - <code>mk_tbl()</code>, <code>clean_labels()</code> — gtsummary regression tables - <code>extract_hiv_row()</code>, <code>extract_interaction()</code>, <code>extract_robust()</code>, <code>format_cox()</code>, <code>fit_cox_capture_warning()</code> — model result extraction and formatting</p>
+<p><strong>Key functions</strong>: - <code>combine_li_ki_consistent()</code> — harmonizes a field recorded in both the liver and kidney files: positive if one is positive and the other positive or missing, negative likewise, missing when they conflict - <code>recode_sex_FM()</code>, <code>recode_YNU()</code>, <code>recode_PNU()</code>, <code>recode_YNU_to_words()</code>, <code>collapse_donor_race()</code>, <code>make_missing_level()</code> — recoders - <code>make_gtsummary_labels()</code> — converts <code>var_labels</code> for {gtsummary} - <code>mk_tbl()</code>, <code>clean_labels()</code> — {gtsummary} regression tables - <code>extract_hiv_row()</code>, <code>extract_interaction()</code>, <code>extract_robust()</code>, <code>format_cox()</code>, <code>fit_cox_capture_warning()</code> — model result extraction and formatting</p>
 <p>The file also contains analysis code (results-table construction, a <code>gtsave()</code> to the project root, interaction models, and <code>library()</code> calls); see <a href="#current-state-of-the-pipeline">Current state</a>.</p>
 </section>
 <section id="cohort-construction" class="level3">
@@ -792,7 +792,7 @@ It reads only ARCHITECTURE.md, never data, and runs no analysis code.
 </tr>
 <tr class="even">
 <td><code>subclass</code></td>
-<td>Matched-set identifier from <code>MatchIt</code>, used to cluster standard errors</td>
+<td>Matched-set identifier from {MatchIt}, used to cluster standard errors</td>
 </tr>
 </tbody>
 </table>
