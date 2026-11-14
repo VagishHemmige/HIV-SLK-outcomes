@@ -11,6 +11,8 @@ HIV SLK
 
 The goal of `HIV SLK outcomes` is to compared the outcomes of people living with HIV (PLWH) who have undergone simultaneous liver-kidney transplant to controls without HIV using the [Scientific Registry of Transplant Recipients](https://srtr.transplant.hrsa.gov/) database.
 
+[Braces](https://forum.posit.co/t/curly-braces-around-package-name-convention/122547) identify R packages throughout this site.
+
 
 ## Methods
 

@@ -22,7 +22,7 @@ This repository compares mortality and graft outcomes after simultaneous liverâ€
   - Plan changes are tracked in git, not in a change log inside the plan. Commit each design change on its own, with a message that gives the reason and says whether any results that depend on it had already been seen.
 - **Open decisions.** The plan marks each open design choice **Open:** where it occurs, linked to its decision issue (titled "Decision D*n*"). Do not settle one in code. Until it is settled, the code keeps the behaviour that produced the poster results and says so in a comment that names the decision. If the code needs to depart from the plan, open a decision issue, or comment on the existing one. Once the decider has settled it (in the issue, or relayed there in his exact words), the plan change and the code can go in the same pull request, which closes the issue.
 - **Decider.** Scientific decisions are made by Vagish Hemmige. Anyone may open or contribute to a decision issue; only the decider settles it (see "Working with agents").
-- **This is an analysis project, not an R package**, even though the scripts live in `R/` and there is an `.Rbuildignore`. Do not add DESCRIPTION, NAMESPACE, roxygen, or pkgdown infrastructure. Do not apply CRAN conventions.
+- **This is an analysis project, not an R package**, even though the scripts live in `R/` and there is an `.Rbuildignore`. Do not add DESCRIPTION, NAMESPACE, roxygen, or [{pkgdown}](https://pkgdown.r-lib.org/) infrastructure. Do not apply CRAN conventions.
 - **Default branch:** `master`, protected. Changes reach it only through pull requests.
 - **Implementation status lives in GitHub Issues**, not in these files. When you find a gap between the code and the plan, or a defect, open or update an issue. Reference the issue in the pull request that closes it.
 
@@ -32,21 +32,21 @@ Each source this project uses is listed below with the package that accesses it.
 
 | Source | Accessed through | Package documentation | Package maintained by | Access | What AI agents may do |
 |---|---|---|---|---|---|
-| SRTR standard analysis files (record the release used for any result) | `sRtr::load_srtr_file()` | [sRtr](https://github.com/VagishHemmige/sRtr) | This team | Restricted under the SRTR data use agreement (DUA) | None: code, documentation and synthetic data only |
+| SRTR standard analysis files (record the release used for any result) | `sRtr::load_srtr_file()` | [{sRtr}](https://github.com/VagishHemmige/sRtr) | This team | Restricted under the SRTR data use agreement (DUA) | None: code, documentation and synthetic data only |
 
 To allow more for a source, a person changes its row through a pull request, naming the agreement and section that permit it, the approved AI service, and exactly what agents may do. Agents never propose or make this change themselves, and nothing in personal instructions can grant it.
 
-**sRtr is the first place to look** for anything that touches SRTR files: loading files (`load_srtr_file()`), labels and factors (`apply_srtr_varlabels()`, `apply_srtr_factors()`), missing-value codes (`srtr_normalize_missing()`), composite death dates (`srtr_composite_death()`), time-to-event variables (`srtr_time_to_event()`), and follow-up outcomes (`add_txf_outcomes()`).
+**{sRtr} is the first place to look** for anything that touches SRTR files: loading files (`load_srtr_file()`), labels and factors (`apply_srtr_varlabels()`, `apply_srtr_factors()`), missing-value codes (`srtr_normalize_missing()`), composite death dates (`srtr_composite_death()`), time-to-event variables (`srtr_time_to_event()`), and follow-up outcomes (`add_txf_outcomes()`).
 
 - **Read its documentation before writing code for a source**, including known issues. Behaviour that sets the cohort, the exposure, an outcome, or a denominator is checked in the documentation, not assumed from a function's name. Use an existing function, or extend it.
-- **Problems belong in the package.** If an sRtr function is wrong, or does almost but not exactly what the plan needs, open an issue in the [sRtr repository](https://github.com/VagishHemmige/sRtr/issues) rather than documenting it here. Then fix it there, or wrap it in this project with a code comment that links the issue. Remove the wrapper when the issue is fixed.
-- **Facts about SRTR belong in sRtr's documentation.** If sRtr lacks something this project needs to know, add it there or open an issue there. The "SRTR data facts" below stay here until sRtr documents them.
-- Before replacing project code with an sRtr function, confirm it gives identical results on synthetic data. For example, `srtr_time_to_event()` adds one day to times by default, and the project's mortality times do not.
-- Record the sRtr version (or commit) used for any result.
+- **Problems belong in the package.** If an {sRtr} function is wrong, or does almost but not exactly what the plan needs, open an issue in the [{sRtr} repository](https://github.com/VagishHemmige/sRtr/issues) rather than documenting it here. Then fix it there, or wrap it in this project with a code comment that links the issue. Remove the wrapper when the issue is fixed.
+- **Facts about SRTR belong in {sRtr}'s documentation.** If {sRtr} lacks something this project needs to know, add it there or open an issue there. The "SRTR data facts" below stay here until {sRtr} documents them.
+- Before replacing project code with an {sRtr} function, confirm it gives identical results on synthetic data. For example, `srtr_time_to_event()` adds one day to times by default, and the project's mortality times do not.
+- Record the {sRtr} version (or commit) used for any result.
 
 ## SRTR data facts
 
-Source: the SRTR standard analysis file data dictionary, as bundled in sRtr (`sRtr::dictionary`, built from `data-raw/dataDictionary.html`). Check these against the release you are using.
+Source: the SRTR standard analysis file data dictionary, as bundled in {sRtr} (`sRtr::dictionary`, built from `data-raw/dataDictionary.html`). Check these against the release you are using.
 
 **One SLK transplant appears twice.** It has a record in the liver file (`tx_li`) and one in the kidney file (`tx_ki`), each with its own `TRR_ID` and `PX_ID`, linked by `PERS_ID`. After the join, the same field carries an `_LI` or `_KI` suffix. The two copies of a field can disagree; harmonize them with a documented rule (`combine_li_ki_consistent()` for serologies), never by silently preferring one file.
 
@@ -152,7 +152,7 @@ The **Access** column of "Data sources" says which sources are restricted. SRTR 
 ## Coding conventions
 
 - **Flowchart labels and text** are built from the constants in `setup.R`, not hard-coded. For example, a label that says "2005 or later" or "age 16 or older" goes stale when the constants change.
-- **Cohort flow** uses the `flowchart` package (`as_fc()`, `fc_filter()`, `fc_draw()`). Every exclusion goes through `fc_filter()`, in the plan's order. Never drop rows from `$data` outside the flowchart; the diagram must reproduce the cohort exactly. Record-level processing (harmonizing liver and kidney copies, choosing among a person's records) is fine. An analysis that uses fewer people than the cohort (complete cases, a subgroup) reports its own number with that analysis. The cohort used downstream is the data from the final flowchart step.
+- **Cohort flow** uses the [{flowchart}](https://bruigtp.github.io/flowchart/) package (`as_fc()`, `fc_filter()`, `fc_draw()`). Every exclusion goes through `fc_filter()`, in the plan's order. Never drop rows from `$data` outside the flowchart; the diagram must reproduce the cohort exactly. Record-level processing (harmonizing liver and kidney copies, choosing among a person's records) is fine. An analysis that uses fewer people than the cohort (complete cases, a subgroup) reports its own number with that analysis. The cohort used downstream is the data from the final flowchart step.
 - **Matching**
   - Matching runs inside the pipeline and is reproducible from the seed in `setup.R`. Control selection must not depend on row order.
   - The matched-set identifier (`subclass`) is kept as an ordinary column through to every model, so models can cluster on it.
@@ -177,7 +177,7 @@ Before opening a pull request, check the items below that apply to your change.
 **Plan and data sources**
 
 - Does the change implement the plan as written, and does it leave every open decision open?
-- Does it use sRtr's functions where they exist, and does their documented behaviour match what the plan needs?
+- Does it use {sRtr}'s functions where they exist, and does their documented behaviour match what the plan needs?
 - For new or changed calls to a package, does the pull request name the installed version and the help page or NEWS entry relied on?
 
 **Cohort construction**
@@ -228,7 +228,7 @@ Before opening a pull request, check the items below that apply to your change.
 
 - Does `main.R` run from a clean session (`Ctrl+Shift+F10` in RStudio, then source `main.R`), with no objects left over from earlier work?
 - Are paths relative, with no hard-coded data directories?
-- Are package versions recorded (`sessionInfo()`, and the sRtr commit)?
+- Are package versions recorded (`sessionInfo()`, and the {sRtr} commit)?
 
 **Validation on real data** (run by an authorized person; report only aggregate, disclosure-checked results)
 

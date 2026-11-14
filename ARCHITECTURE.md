@@ -4,7 +4,7 @@
 
 ## Overview
 
-The project compares outcomes after simultaneous liver–kidney (SLK) transplantation in recipients with and without HIV, using SRTR standard analysis files loaded through the separate [`sRtr`](https://github.com/VagishHemmige/sRtr) package. It works in five stages:
+The project compares outcomes after simultaneous liver–kidney (SLK) transplantation in recipients with and without HIV, using SRTR standard analysis files loaded through the separate [{sRtr}](https://github.com/VagishHemmige/sRtr) package. It works in five stages:
 
 1. Load the liver and kidney transplant files and pair each person's liver and kidney records.
 2. Keep first SLK transplants, apply exclusions, classify HIV status, and derive analysis variables.
@@ -58,7 +58,7 @@ flowchart TD
 **Location**: `R/setup.R`
 
 **Key symbols**:
-- Libraries for data management, `sRtr`, `strobe` and `flowchart`, `MatchIt`, `survival`, `MASS`, `sandwich`, `lmtest`, `gtsummary`, `gt`, `survminer`
+- Libraries for data management, {sRtr}, [{strobe}](https://vagishhemmige.github.io/strobe/) and [{flowchart}](https://bruigtp.github.io/flowchart/), [{MatchIt}](https://kosukeimai.github.io/MatchIt/), [{survival}](https://CRAN.R-project.org/package=survival), [{MASS}](https://CRAN.R-project.org/package=MASS), [{sandwich}](https://CRAN.R-project.org/package=sandwich), [{lmtest}](https://CRAN.R-project.org/package=lmtest), [{gtsummary}](https://www.danieldsjoberg.com/gtsummary/), [{gt}](https://gt.rstudio.com/), [{survminer}](https://CRAN.R-project.org/package=survminer)
 - `conflict_prefer()` calls so `dplyr::select`, `filter` and `lag` win
 - `var_labels` — named vector of readable labels for table variables
 
@@ -71,8 +71,8 @@ Analysis constants (study start year, age threshold, era cut-off, matching setti
 **Key functions**:
 - `combine_li_ki_consistent()` — harmonizes a field recorded in both the liver and kidney files: positive if one is positive and the other positive or missing, negative likewise, missing when they conflict
 - `recode_sex_FM()`, `recode_YNU()`, `recode_PNU()`, `recode_YNU_to_words()`, `collapse_donor_race()`, `make_missing_level()` — recoders
-- `make_gtsummary_labels()` — converts `var_labels` for gtsummary
-- `mk_tbl()`, `clean_labels()` — gtsummary regression tables
+- `make_gtsummary_labels()` — converts `var_labels` for {gtsummary}
+- `mk_tbl()`, `clean_labels()` — {gtsummary} regression tables
 - `extract_hiv_row()`, `extract_interaction()`, `extract_robust()`, `format_cox()`, `fit_cox_capture_warning()` — model result extraction and formatting
 
 The file also contains analysis code (results-table construction, a `gtsave()` to the project root, interaction models, and `library()` calls); see [Current state](#current-state-of-the-pipeline).
@@ -209,4 +209,4 @@ SRTR files → `tx_merged` (all liver–kidney record pairs per person) → `tx_
 | `PX_ID` | Candidate registration identifier; links to candidate files |
 | `TRR_ID` | Transplant recipient registration identifier; links to follow-up files |
 | `DONOR_ID` | Donor identifier; links to the deceased donor file |
-| `subclass` | Matched-set identifier from `MatchIt`, used to cluster standard errors |
+| `subclass` | Matched-set identifier from {MatchIt}, used to cluster standard errors |
